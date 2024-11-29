@@ -11,16 +11,29 @@ A lightweight macOS menu bar application for real-time cryptocurrency price trac
 ### Option 1: Download Release
 1. Go to [Releases](https://github.com/chenwuai/BTCWatcher/releases) page
 2. Download the latest `BTCWatcher.app.zip`
-3. Unzip and drag to your Applications folder
-4. Double-click to launch
+3. Unzip the application
+4. Right-click the app and select "Open" (important for first launch)
+5. Click "Open" in the security dialog
+6. Drag to your Applications folder (optional)
+
+Note: If you see "app is damaged" message:
+1. Open Terminal
+2. Run: `xattr -cr /Applications/BTCWatcher.app` (adjust path if needed)
+3. Try opening the app again
 
 ### Option 2: Build from Source
 If you prefer to build from source:
 ```bash
 git clone https://github.com/chenwuai/BTCWatcher.git
 cd BTCWatcher
-swiftc -o BTCWatcher.app/Contents/MacOS/BTCWatcher main.swift
+./build.sh
 ```
+
+The script will:
+- Compile the Swift code
+- Create the app bundle
+- Package it into a zip file
+- Set all necessary permissions
 
 ## Features
 

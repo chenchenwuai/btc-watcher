@@ -11,16 +11,29 @@
 ### 方式一：下载发布版
 1. 访问 [Releases](https://github.com/chenwuai/BTCWatcher/releases) 页面
 2. 下载最新的 `BTCWatcher.app.zip`
-3. 解压并拖入应用程序文件夹
-4. 双击启动
+3. 解压应用
+4. 右键点击应用，选择"打开"（首次启动时很重要）
+5. 在安全性对话框中点击"打开"
+6. 拖入应用程序文件夹（可选）
+
+注意：如果遇到"应用程序已损坏"的提示：
+1. 打开终端
+2. 运行：`xattr -cr /Applications/BTCWatcher.app`（根据实际路径调整）
+3. 重新尝试打开应用
 
 ### 方式二：从源码编译
 如果你想自己编译：
 ```bash
 git clone https://github.com/chenwuai/BTCWatcher.git
 cd BTCWatcher
-swiftc -o BTCWatcher.app/Contents/MacOS/BTCWatcher main.swift
+./build.sh
 ```
+
+脚本会自动：
+- 编译 Swift 代码
+- 创建应用程序包
+- 打包成 zip 文件
+- 设置所有必要的权限
 
 ## 功能特点
 
