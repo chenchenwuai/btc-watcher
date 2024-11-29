@@ -39,6 +39,14 @@ if [ -d "Resources" ]; then
     cp -r Resources/* "$APP_BUNDLE/Contents/Resources/"
 fi
 
+# Remove extended attributes
+echo "🧹 Removing extended attributes..."
+xattr -cr "$APP_BUNDLE"
+
+# Sign the application
+echo "📝 Signing application..."
+codesign --force --deep --sign - "$APP_BUNDLE"
+
 # Create zip archive using ditto (preserves permissions and attributes)
 echo "📦 Creating zip archive..."
 ditto -c -k --keepParent "$APP_BUNDLE" "$ZIP_NAME"
@@ -50,7 +58,10 @@ if [ $? -eq 0 ]; then
     echo "   or"
     echo "2. Run: open $APP_BUNDLE"
     echo ""
-    echo "Note: Do not run the executable directly. Always use the app bundle."
+    echo "If you see 'app is damaged' message:"
+    echo "1. Right-click the app and select 'Open'"
+    echo "2. Click 'Open' in the security dialog"
+    echo "3. The app will be saved as an exception"
 else
     echo "❌ Failed to create zip archive!"
     exit 1
