@@ -1,0 +1,26 @@
+# macOS system files
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Xcode
+*.xcodeproj
+*.xcworkspace
+xcuserdata/
+*.xcscmblueprint
+*.xccheckout
+
+# Build products
+*.app
+*.app.zip
+build/
+DerivedData/
+
+# Swift Package Manager
+.build/
+.swiftpm/
+
+# Other
+*.log
+.env
+*.pem
