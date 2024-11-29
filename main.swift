@@ -71,7 +71,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             • 多语言支持
             
             由 chenwuai 开发
-            """]
+            """],
+        "feedback": [true: "Feedback", false: "反馈"]
     ]
     
     func localized(_ key: String) -> String {
@@ -152,6 +153,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         
         // About menu item
         menu.addItem(NSMenuItem(title: localized("about"), action: #selector(showAbout), keyEquivalent: ""))
+        
+        // Feedback menu item
+        menu.addItem(NSMenuItem(title: localized("feedback"), action: #selector(openFeedback), keyEquivalent: ""))
+        
         menu.addItem(NSMenuItem(title: localized("quit"), action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
         
         statusItem.menu = menu
@@ -368,6 +373,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         
         alert.addButton(withTitle: localized("ok"))
         alert.runModal()
+    }
+    
+    @objc func openFeedback() {
+        if let url = URL(string: "https://github.com/chenchenwuai/btc-watcher/issues") {
+            NSWorkspace.shared.open(url)
+        }
     }
     
     func handleApiError() {
