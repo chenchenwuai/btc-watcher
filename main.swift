@@ -25,7 +25,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         ("DOGE", "DOGEUSDT", "Ð")
     ]
     
-    // 语言本地化
+    // Localization
     private let localizedStrings: [String: [Bool: String]] = [
         "loading": [true: "Loading...", false: "加载中..."],
         "addCoin": [true: "Add Custom Coin...", false: "添加自定义币种..."],
@@ -81,7 +81,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ aNotification: Notification) {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         
-        // 设置菜单栏显示
+        // Set up menu bar display
         if let button = statusItem.button {
             button.image = nil
             button.title = "\(currentIcon) \(currentPrice)"
@@ -167,7 +167,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             currentApiIndex = index
             isAutoSwitchApi = false
             setupMenu()
-            updatePrice() // 立即更新价格以测试新API
+            updatePrice() // Update price immediately to test new API
         }
     }
     
@@ -181,7 +181,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
     
     func validateAndAddCoin(_ symbol: String) {
-        // 检查是否已存在
+        // Check if the coin already exists
         if symbols.contains(where: { $0.1 == symbol }) {
             DispatchQueue.main.async {
                 self.currentSymbol = symbol
@@ -220,10 +220,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
     
     func formatPrice(_ price: Double) -> String {
-        // 对于小于0.01的价格显示8位小数
-        // 对于0.01-1之间的价格显示6位小数
-        // 对于1-100之间的价格显示4位小数
-        // 对于100以上的价格显示2位小数
+        // Format price based on its value
         let decimals: Int
         if price < 0.01 {
             decimals = 8
@@ -235,10 +232,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             decimals = 2
         }
         
-        // 格式化价格
+        // Format price
         let formattedPrice = String(format: "%.\(decimals)f", price)
         
-        // 移除末尾的0，但保留小数点后至少一位
+        // Remove trailing zeros, but keep at least one decimal place
         var trimmed = formattedPrice
         while trimmed.hasSuffix("0") && trimmed.contains(".") && trimmed.split(separator: ".")[1].count > 1 {
             trimmed.removeLast()
@@ -290,7 +287,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         
         NSApp.activate(ignoringOtherApps: true)
         
-        // 显示对话框
+        // Show alert
         let response = alert.runModal()
         
         if response == .alertFirstButtonReturn {
@@ -359,11 +356,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let alert = NSAlert()
         alert.messageText = localized("aboutTitle")
         alert.informativeText = localized("aboutMessage")
-        alert.window.maxSize = NSSize(width: 500, height: 1000)  // 增加最大宽度
-        alert.window.minSize = NSSize(width: 400, height: 200)   // 设置最小宽度
+        alert.window.maxSize = NSSize(width: 500, height: 1000)  // Increase maximum width
+        alert.window.minSize = NSSize(width: 400, height: 200)   // Set minimum width
         alert.alertStyle = .informational
         
-        // 添加应用图标
+        // Add application icon
         if let iconURL = Bundle.main.url(forResource: "AppIcon", withExtension: "icns"),
            let image = NSImage(contentsOf: iconURL) {
             alert.icon = image
