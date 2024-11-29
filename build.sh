@@ -44,11 +44,13 @@ echo "📦 Creating zip archive..."
 ditto -c -k --keepParent "$APP_BUNDLE" "$ZIP_NAME"
 
 if [ $? -eq 0 ]; then
-    echo "✅ Build complete! Created $ZIP_NAME"
-    echo "📝 Next steps:"
-    echo "1. Test the app: open $APP_BUNDLE"
-    echo "2. If needed, fix permissions: xattr -cr $APP_BUNDLE"
-    echo "3. Upload $ZIP_NAME to GitHub releases"
+    echo "✅ Build complete!"
+    echo "📝 To run the app:"
+    echo "1. Double click $APP_BUNDLE"
+    echo "   or"
+    echo "2. Run: open $APP_BUNDLE"
+    echo ""
+    echo "Note: Do not run the executable directly. Always use the app bundle."
 else
     echo "❌ Failed to create zip archive!"
     exit 1
