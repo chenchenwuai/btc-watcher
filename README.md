@@ -1,10 +1,26 @@
 # BTC Watcher
 
-[中文](README_CN.md)
+[中文](README_CN.md) | English
 
 A lightweight macOS menu bar application for real-time cryptocurrency price tracking.
 
 ![Screenshot](screenshot.png)
+
+## Quick Start 🚀
+
+### Option 1: Download Release
+1. Go to [Releases](https://github.com/chenwuai/BTCWatcher/releases) page
+2. Download the latest `BTCWatcher.app.zip`
+3. Unzip and drag to your Applications folder
+4. Double-click to launch
+
+### Option 2: Build from Source
+If you prefer to build from source:
+```bash
+git clone https://github.com/chenwuai/BTCWatcher.git
+cd BTCWatcher
+swiftc -o BTCWatcher.app/Contents/MacOS/BTCWatcher main.swift
+```
 
 ## Features
 
@@ -20,13 +36,6 @@ A lightweight macOS menu bar application for real-time cryptocurrency price trac
 
 - macOS 13.0 or later
 - Internet connection required for price updates
-
-## Installation
-
-1. Download the latest `BTCWatcher.app`
-2. Drag it to your Applications folder
-3. Double-click to launch
-4. If prompted about security, allow the app to run in System Settings > Security & Privacy
 
 ## Usage
 

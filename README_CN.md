@@ -1,10 +1,26 @@
 # BTC Watcher
 
-[English](README.md)
+[English](README.md) | 中文
 
 一个轻量级的 macOS 菜单栏应用，用于实时追踪加密货币价格。
 
 ![截图](screenshot.png)
+
+## 快速开始 🚀
+
+### 方式一：下载发布版
+1. 访问 [Releases](https://github.com/chenwuai/BTCWatcher/releases) 页面
+2. 下载最新的 `BTCWatcher.app.zip`
+3. 解压并拖入应用程序文件夹
+4. 双击启动
+
+### 方式二：从源码编译
+如果你想自己编译：
+```bash
+git clone https://github.com/chenwuai/BTCWatcher.git
+cd BTCWatcher
+swiftc -o BTCWatcher.app/Contents/MacOS/BTCWatcher main.swift
+```
 
 ## 功能特点
 
