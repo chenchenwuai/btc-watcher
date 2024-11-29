@@ -3,10 +3,10 @@ import Cocoa
 class AppDelegate: NSObject, NSApplicationDelegate {
     var statusItem: NSStatusItem!
     var timer: Timer?
-    private var currentPrice: String = "加载中..."
+    private var currentPrice: String = "Loading..."
     private var currentSymbol: String = "BTCUSDT"
     private var currentIcon: String = "₿"
-    private var isEnglish: Bool = false
+    private var isEnglish: Bool = true
     private var currentApiIndex: Int = 0
     private var isAutoSwitchApi: Bool = true
     private var failedAttempts: Int = 0
