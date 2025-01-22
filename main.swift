@@ -77,7 +77,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         "about": [true: "About", false: "关于"],
         "aboutTitle": [true: "About BTC Watcher", false: "关于 BTC Watcher"],
         "aboutMessage": [true: """
-            BTC Watcher v1.0
+            BTC Watcher v1.1.0
             
             A lightweight cryptocurrency price tracking app for macOS.
             
@@ -91,7 +91,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             Created by chenwuai
             """,
             false: """
-            BTC Watcher v1.0
+            BTC Watcher v1.1.0
             
             一个轻量级的 macOS 加密货币价格跟踪应用。
             
