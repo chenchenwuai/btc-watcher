@@ -1,5 +1,11 @@
 import Cocoa
 
+struct CoinSymbol: Codable {
+    let name: String
+    let symbol: String
+    let icon: String
+}
+
 class AppDelegate: NSObject, NSApplicationDelegate {
     var statusItem: NSStatusItem!
     var timer: Timer?
@@ -24,6 +30,32 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         ("ETH", "ETHUSDT", "Ξ"),
         ("DOGE", "DOGEUSDT", "Ð")
     ]
+    
+    private let defaultSymbols = [
+        ("BTC", "BTCUSDT", "₿"),
+        ("ETH", "ETHUSDT", "Ξ"),
+        ("DOGE", "DOGEUSDT", "Ð")
+    ]
+    
+    private func loadCustomSymbols() {
+        if let savedData = UserDefaults.standard.data(forKey: "customSymbols"),
+           let savedSymbols = try? JSONDecoder().decode([CoinSymbol].self, from: savedData) {
+            let customTuples = savedSymbols.map { ($0.name, $0.symbol, $0.icon) }
+            symbols = defaultSymbols + customTuples
+        } else {
+            symbols = defaultSymbols
+        }
+    }
+    
+    private func saveCustomSymbols() {
+        let customSymbols = symbols.filter { symbol in
+            !defaultSymbols.contains(where: { $0 == symbol })
+        }
+        let coinSymbols = customSymbols.map { CoinSymbol(name: $0.0, symbol: $0.1, icon: $0.2) }
+        if let encodedData = try? JSONEncoder().encode(coinSymbols) {
+            UserDefaults.standard.set(encodedData, forKey: "customSymbols")
+        }
+    }
     
     // Localization
     private let localizedStrings: [String: [Bool: String]] = [
@@ -79,149 +111,29 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         return localizedStrings[key]?[isEnglish] ?? key
     }
     
-    func applicationDidFinishLaunching(_ aNotification: Notification) {
-        statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-        
-        // Set up menu bar display
-        if let button = statusItem.button {
-            button.image = nil
-            button.title = "\(currentIcon) \(currentPrice)"
-        }
-        
-        setupMenu()
-        startTimer()
-    }
-    
-    func setupMenu() {
-        let menu = NSMenu()
-        
-        // Add Custom Coin menu item
-        menu.addItem(NSMenuItem(title: localized("addCoin"), action: #selector(addCustomCoin), keyEquivalent: "n"))
-        menu.addItem(NSMenuItem.separator())
-        
-        // Coins submenu
-        for (name, symbol, _) in symbols {
-            let item = NSMenuItem(title: name, action: #selector(switchCoin(_:)), keyEquivalent: "")
-            item.representedObject = symbol
-            item.state = symbol == currentSymbol ? .on : .off
-            menu.addItem(item)
-        }
-        
-        menu.addItem(NSMenuItem.separator())
-        
-        // Update Interval submenu
-        menu.addItem(NSMenuItem(title: localized("updateInterval"), action: nil, keyEquivalent: ""))
-        let intervalSubmenu = NSMenu()
-        intervalSubmenu.addItem(NSMenuItem(title: "1s", action: #selector(setInterval1s), keyEquivalent: "1"))
-        intervalSubmenu.addItem(NSMenuItem(title: "2s", action: #selector(setInterval2s), keyEquivalent: "2"))
-        intervalSubmenu.addItem(NSMenuItem(title: "5s", action: #selector(setInterval5s), keyEquivalent: "5"))
-        if let intervalItem = menu.item(at: menu.items.count - 1) {
-            menu.setSubmenu(intervalSubmenu, for: intervalItem)
-        }
-        
-        menu.addItem(NSMenuItem.separator())
-        
-        // API Endpoint submenu
-        menu.addItem(NSMenuItem(title: localized("apiEndpoint"), action: nil, keyEquivalent: ""))
-        let apiSubmenu = NSMenu()
-        
-        // Auto switch option
-        let autoItem = NSMenuItem(title: localized("autoSwitch"), action: #selector(toggleAutoSwitch), keyEquivalent: "a")
-        autoItem.state = isAutoSwitchApi ? .on : .off
-        apiSubmenu.addItem(autoItem)
-        
-        apiSubmenu.addItem(NSMenuItem.separator())
-        
-        // Manual API selection
-        for (index, _) in apiEndpoints.enumerated() {
-            let item = NSMenuItem(title: "\(localized("api")) \(index + 1)", action: #selector(switchApi(_:)), keyEquivalent: "")
-            item.representedObject = index
-            item.state = (index == currentApiIndex && !isAutoSwitchApi) ? .on : .off
-            apiSubmenu.addItem(item)
-        }
-        
-        if let apiItem = menu.item(at: menu.items.count - 1) {
-            menu.setSubmenu(apiSubmenu, for: apiItem)
-        }
-        
-        menu.addItem(NSMenuItem.separator())
-        
-        // Language switcher
-        menu.addItem(NSMenuItem(title: localized("language"), action: #selector(toggleLanguage), keyEquivalent: "l"))
-        
-        menu.addItem(NSMenuItem.separator())
-        
-        // About menu item
-        menu.addItem(NSMenuItem(title: localized("about"), action: #selector(showAbout), keyEquivalent: ""))
-        
-        // Feedback menu item
-        menu.addItem(NSMenuItem(title: localized("feedback"), action: #selector(openFeedback), keyEquivalent: ""))
-        
-        menu.addItem(NSMenuItem(title: localized("quit"), action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
-        
-        statusItem.menu = menu
-    }
-    
-    @objc func toggleAutoSwitch() {
-        isAutoSwitchApi.toggle()
-        setupMenu()
-    }
-    
-    @objc func switchApi(_ sender: NSMenuItem) {
-        if let index = sender.representedObject as? Int {
-            currentApiIndex = index
-            isAutoSwitchApi = false
-            setupMenu()
-            updatePrice() // Update price immediately to test new API
-        }
-    }
-    
     func getCurrentApiEndpoint() -> String {
         return apiEndpoints[currentApiIndex]
+    }
+    
+    func showError(_ message: String) {
+        let alert = NSAlert()
+        alert.messageText = localized("error")
+        alert.informativeText = localized(message)
+        alert.alertStyle = .warning
+        alert.runModal()
+    }
+    
+    func startTimer(interval: TimeInterval = 2.0) {
+        timer?.invalidate()
+        timer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in
+            self?.updatePrice()
+        }
+        timer?.fire()
     }
     
     func switchToNextApi() {
         currentApiIndex = (currentApiIndex + 1) % apiEndpoints.count
         print("Switching to API \(currentApiIndex + 1)")
-    }
-    
-    func validateAndAddCoin(_ symbol: String) {
-        // Check if the coin already exists
-        if symbols.contains(where: { $0.1 == symbol }) {
-            DispatchQueue.main.async {
-                self.currentSymbol = symbol
-                if let (_, _, icon) = self.symbols.first(where: { $0.1 == symbol }) {
-                    self.currentIcon = icon
-                }
-                self.setupMenu()
-                self.updatePrice()
-            }
-            return
-        }
-        
-        guard let url = URL(string: "\(getCurrentApiEndpoint())?symbol=\(symbol)") else { return }
-        
-        URLSession.shared.dataTask(with: url) { [weak self] data, response, error in
-            guard let self = self,
-                  let data = data,
-                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                  let _ = json["price"] as? String
-            else {
-                DispatchQueue.main.async {
-                    self?.showError("invalidCoin")
-                }
-                return
-            }
-            
-            DispatchQueue.main.async {
-                let name = symbol.replacingOccurrences(of: "USDT", with: "")
-                self.symbols.append((name, symbol, name))
-                self.currentSymbol = symbol
-                self.currentIcon = name
-                self.setupMenu()
-                self.updatePrice()
-            }
-        }.resume()
     }
     
     func formatPrice(_ price: Double) -> String {
@@ -274,9 +186,47 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }.resume()
     }
     
-    @objc func toggleLanguage() {
-        isEnglish.toggle()
-        setupMenu()
+    func validateAndAddCoin(_ symbol: String) {
+        // Check if the coin already exists
+        if symbols.contains(where: { $0.1 == symbol }) {
+            DispatchQueue.main.async {
+                self.currentSymbol = symbol
+                if let (_, _, icon) = self.symbols.first(where: { $0.1 == symbol }) {
+                    self.currentIcon = icon
+                }
+                self.setupMenu()
+                self.updatePrice()
+            }
+            return
+        }
+        
+        guard let url = URL(string: "\(getCurrentApiEndpoint())?symbol=\(symbol)") else { return }
+        
+        URLSession.shared.dataTask(with: url) { [weak self] data, response, error in
+            guard let self,
+                  let data = data,
+                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let _ = json["price"] as? String
+            else {
+                DispatchQueue.main.async {
+                    self?.showError("invalidCoin")
+                }
+                return
+            }
+            
+            DispatchQueue.main.async {
+                let name = symbol.replacingOccurrences(of: "USDT", with: "")
+                self.symbols.append((name, symbol, name))
+                self.currentSymbol = symbol
+                self.currentIcon = name
+                // 保存自定义交易对
+                self.saveCustomSymbols()
+                // 保存最后选择的交易对
+                UserDefaults.standard.set(symbol, forKey: "lastSymbol")
+                self.setupMenu()
+                self.updatePrice()
+            }
+        }.resume()
     }
     
     @objc func addCustomCoin() {
@@ -285,45 +235,136 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         alert.informativeText = localized("addCoinMsg")
         
         let input = NSTextField(frame: NSRect(x: 0, y: 0, width: 200, height: 24))
-        input.placeholderString = "BTCUSDT"
+        input.placeholderString = "BTC"
         alert.accessoryView = input
         alert.addButton(withTitle: localized("ok"))
         alert.addButton(withTitle: localized("cancel"))
         
         NSApp.activate(ignoringOtherApps: true)
         
-        // Show alert
+        DispatchQueue.main.async {
+            input.window?.makeFirstResponder(input)
+        }
+        
         let response = alert.runModal()
         
         if response == .alertFirstButtonReturn {
-            let symbol = input.stringValue.uppercased()
+            var symbol = input.stringValue.uppercased()
+            if !symbol.hasSuffix("USDT") {
+                symbol += "USDT"
+            }
             if !symbol.isEmpty {
                 validateAndAddCoin(symbol)
             }
         }
     }
     
-    func showError(_ message: String) {
-        let alert = NSAlert()
-        alert.messageText = localized("error")
-        alert.informativeText = localized(message)
-        alert.alertStyle = .warning
-        alert.runModal()
-    }
-    
-    func startTimer(interval: TimeInterval = 2.0) {
-        timer?.invalidate()
-        timer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in
-            self?.updatePrice()
+    func setupMenu() {
+        let menu = NSMenu()
+        
+        // Add Custom Coin menu item
+        menu.addItem(NSMenuItem(title: localized("addCoin"), action: #selector(addCustomCoin), keyEquivalent: "n"))
+        menu.addItem(NSMenuItem.separator())
+        
+        // Coins submenu
+        for (name, symbol, _) in symbols {
+            let item = NSMenuItem(title: name, action: #selector(switchCoin(_:)), keyEquivalent: "")
+            item.representedObject = symbol
+            item.state = symbol == currentSymbol ? .on : .off
+            
+            // 为自定义交易对添加删除选项
+            if !defaultSymbols.contains(where: { $0.1 == symbol }) {
+                let deleteItem = NSMenuItem(title: localized("delete"), action: #selector(deleteCoin(_:)), keyEquivalent: "")
+                deleteItem.representedObject = symbol
+                item.submenu = NSMenu()
+                item.submenu?.addItem(deleteItem)
+            }
+            
+            menu.addItem(item)
         }
-        timer?.fire()
+        
+        menu.addItem(NSMenuItem.separator())
+        
+        // Update Interval submenu
+        let intervalItem = NSMenuItem(title: localized("updateInterval"), action: nil, keyEquivalent: "")
+        let intervalSubmenu = NSMenu()
+        intervalSubmenu.addItem(NSMenuItem(title: "1s", action: #selector(setInterval1s), keyEquivalent: "1"))
+        intervalSubmenu.addItem(NSMenuItem(title: "2s", action: #selector(setInterval2s), keyEquivalent: "2"))
+        intervalSubmenu.addItem(NSMenuItem(title: "5s", action: #selector(setInterval5s), keyEquivalent: "5"))
+        menu.addItem(intervalItem)
+        menu.setSubmenu(intervalSubmenu, for: intervalItem)
+        
+        menu.addItem(NSMenuItem.separator())
+        
+        // API Endpoint submenu
+        let apiItem = NSMenuItem(title: localized("apiEndpoint"), action: nil, keyEquivalent: "")
+        let apiSubmenu = NSMenu()
+        
+        // Auto switch option
+        let autoItem = NSMenuItem(title: localized("autoSwitch"), action: #selector(toggleAutoSwitch), keyEquivalent: "a")
+        autoItem.state = isAutoSwitchApi ? NSControl.StateValue.on : NSControl.StateValue.off
+        apiSubmenu.addItem(autoItem)
+        
+        apiSubmenu.addItem(NSMenuItem.separator())
+        
+        // Manual API selection
+        for (index, _) in apiEndpoints.enumerated() {
+            let item = NSMenuItem(title: "\(localized("api")) \(index + 1)", action: #selector(switchApi(_:)), keyEquivalent: "")
+            item.representedObject = index
+            item.state = (index == currentApiIndex && !isAutoSwitchApi) ? NSControl.StateValue.on : NSControl.StateValue.off
+            apiSubmenu.addItem(item)
+        }
+        menu.addItem(apiItem)
+        menu.setSubmenu(apiSubmenu, for: apiItem)
+        
+        menu.addItem(NSMenuItem.separator())
+        
+        // Language switcher
+        menu.addItem(NSMenuItem(title: localized("language"), action: #selector(toggleLanguage), keyEquivalent: "l"))
+        
+        menu.addItem(NSMenuItem.separator())
+        
+        // About menu item
+        menu.addItem(NSMenuItem(title: localized("about"), action: #selector(showAbout), keyEquivalent: ""))
+        
+        // Feedback menu item
+        menu.addItem(NSMenuItem(title: localized("feedback"), action: #selector(openFeedback), keyEquivalent: ""))
+        
+        // Quit menu item
+        menu.addItem(NSMenuItem(title: localized("quit"), action: #selector(quit), keyEquivalent: "q"))
+        
+        statusItem.menu = menu
     }
     
+    func applicationDidFinishLaunching(_ aNotification: Notification) {
+        loadCustomSymbols()
+        
+        // 加载上次选择的交易对
+        if let lastSymbol = UserDefaults.standard.string(forKey: "lastSymbol"),
+           let lastIcon = symbols.first(where: { $0.1 == lastSymbol })?.2 {
+            currentSymbol = lastSymbol
+            currentIcon = lastIcon
+        }
+        
+        statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+        
+        // Set up menu bar display
+        if let button = statusItem.button {
+            button.image = nil
+            button.title = "\(currentIcon) \(currentPrice)"
+        }
+        
+        setupMenu()
+        startTimer()
+    }
+
     @objc func switchCoin(_ sender: NSMenuItem) {
         guard let symbol = sender.representedObject as? String else { return }
         currentSymbol = symbol
         if let (_, _, icon) = symbols.first(where: { $0.1 == symbol }) {
             currentIcon = icon
+            // 保存当前选择的交易对
+            UserDefaults.standard.set(symbol, forKey: "lastSymbol")
         }
         setupMenu()
         updatePrice()
@@ -351,6 +392,54 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             self?.updatePrice()
         }
         setupMenu()
+    }
+    
+    @objc func toggleAutoSwitch() {
+        isAutoSwitchApi = !isAutoSwitchApi
+        UserDefaults.standard.set(isAutoSwitchApi, forKey: "autoSwitchApi")
+        setupMenu()
+    }
+    
+    @objc func switchApi(_ sender: NSMenuItem) {
+        guard let index = sender.representedObject as? Int else { return }
+        currentApiIndex = index
+        isAutoSwitchApi = false
+        UserDefaults.standard.set(currentApiIndex, forKey: "currentApiIndex")
+        UserDefaults.standard.set(isAutoSwitchApi, forKey: "autoSwitchApi")
+        setupMenu()
+        updatePrice()
+    }
+    
+    @objc func toggleLanguage() {
+        isEnglish = !isEnglish
+        UserDefaults.standard.set(isEnglish, forKey: "isEnglish")
+        setupMenu()
+        currentPrice = localized("loading")
+        updatePrice()
+    }
+    
+    @objc func deleteCoin(_ sender: NSMenuItem) {
+        guard let symbol = sender.representedObject as? String else { return }
+        
+        // 如果当前显示的是要删除的币种，切换到 BTC
+        if symbol == currentSymbol {
+            currentSymbol = "BTCUSDT"
+            currentIcon = "₿"
+        }
+        
+        // 从数组中移除
+        symbols.removeAll(where: { $0.1 == symbol })
+        
+        // 保存更新后的自定义交易对
+        saveCustomSymbols()
+        
+        // 刷新菜单
+        setupMenu()
+        
+        // 如果需要，更新显示
+        if symbol == currentSymbol {
+            updatePrice()
+        }
     }
     
     @objc func quit() {
