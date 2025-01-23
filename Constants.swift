@@ -1,7 +1,7 @@
 import Foundation
 
 struct Constants {
-    static let appVersion = "v1.2.0"
+    static let appVersion = "v1.2.1"
     
     static let apiEndpoints = [
         "https://api.binance.com/api/v3/ticker/price",
