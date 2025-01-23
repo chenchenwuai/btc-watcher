@@ -9,6 +9,12 @@ APP_BUNDLE="$APP_NAME.app"
 APP_EXECUTABLE="$APP_BUNDLE/Contents/MacOS/$APP_NAME"
 ZIP_NAME="$APP_NAME.app.zip"
 
+# 删除已存在的 zip 文件
+if [ -f "$ZIP_NAME" ]; then
+    echo "🗑️  Removing existing zip file..."
+    rm "$ZIP_NAME"
+fi
+
 # Create necessary directories if they don't exist
 echo "📁 Creating app bundle structure..."
 mkdir -p "$APP_BUNDLE/Contents/MacOS"

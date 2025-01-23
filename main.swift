@@ -58,6 +58,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
     
     // Localization
+    // 在 localizedStrings 中添加
     private let localizedStrings: [String: [Bool: String]] = [
         "loading": [true: "Loading...", false: "加载中..."],
         "addCoin": [true: "Add Custom Coin...", false: "添加自定义币种..."],
@@ -104,7 +105,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             
             由 chenwuai 开发
             """],
-        "feedback": [true: "Feedback", false: "反馈"]
+        "feedback": [true: "Feedback", false: "反馈"],
+        "help": [true: "Help", false: "帮助"],
+        "settings": [true: "Settings", false: "设置"],
+        "delete": [true: "Delete", false: "删除"],
+        "viewContract": [true: "View Contract", false: "查看合约"],
     ]
     
     func localized(_ key: String) -> String {
@@ -272,7 +277,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             item.representedObject = symbol
             item.state = symbol == currentSymbol ? .on : .off
             
-            // 为自定义交易对添加删除选项
             if !defaultSymbols.contains(where: { $0.1 == symbol }) {
                 let deleteItem = NSMenuItem(title: localized("delete"), action: #selector(deleteCoin(_:)), keyEquivalent: "")
                 deleteItem.representedObject = symbol
@@ -285,37 +289,48 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         
         menu.addItem(NSMenuItem.separator())
         
+        // Add contract link menu item
+        let contractUrl = isEnglish 
+            ? "https://www.binance.com/en/futures/\(currentSymbol)"
+            : "https://www.binance.com/zh-CN/futures/\(currentSymbol)"
+        let contractItem = NSMenuItem(title: localized("viewContract"), action: #selector(openContract), keyEquivalent: "")
+        contractItem.representedObject = contractUrl
+        menu.addItem(contractItem)
+        
+        menu.addItem(NSMenuItem.separator())
+        
+        // Settings submenu
+        let settingsItem = NSMenuItem(title: localized("settings"), action: nil, keyEquivalent: "")
+        let settingsSubmenu = NSMenu()
+        
         // Update Interval submenu
         let intervalItem = NSMenuItem(title: localized("updateInterval"), action: nil, keyEquivalent: "")
         let intervalSubmenu = NSMenu()
         intervalSubmenu.addItem(NSMenuItem(title: "1s", action: #selector(setInterval1s), keyEquivalent: "1"))
         intervalSubmenu.addItem(NSMenuItem(title: "2s", action: #selector(setInterval2s), keyEquivalent: "2"))
         intervalSubmenu.addItem(NSMenuItem(title: "5s", action: #selector(setInterval5s), keyEquivalent: "5"))
-        menu.addItem(intervalItem)
-        menu.setSubmenu(intervalSubmenu, for: intervalItem)
+        settingsSubmenu.addItem(intervalItem)
+        settingsSubmenu.setSubmenu(intervalSubmenu, for: intervalItem)
         
-        menu.addItem(NSMenuItem.separator())
-        
-        // API Endpoint submenu
+        // API settings
         let apiItem = NSMenuItem(title: localized("apiEndpoint"), action: nil, keyEquivalent: "")
         let apiSubmenu = NSMenu()
-        
-        // Auto switch option
         let autoItem = NSMenuItem(title: localized("autoSwitch"), action: #selector(toggleAutoSwitch), keyEquivalent: "a")
         autoItem.state = isAutoSwitchApi ? NSControl.StateValue.on : NSControl.StateValue.off
         apiSubmenu.addItem(autoItem)
-        
         apiSubmenu.addItem(NSMenuItem.separator())
         
-        // Manual API selection
         for (index, _) in apiEndpoints.enumerated() {
             let item = NSMenuItem(title: "\(localized("api")) \(index + 1)", action: #selector(switchApi(_:)), keyEquivalent: "")
             item.representedObject = index
             item.state = (index == currentApiIndex && !isAutoSwitchApi) ? NSControl.StateValue.on : NSControl.StateValue.off
             apiSubmenu.addItem(item)
         }
-        menu.addItem(apiItem)
-        menu.setSubmenu(apiSubmenu, for: apiItem)
+        settingsSubmenu.addItem(apiItem)
+        settingsSubmenu.setSubmenu(apiSubmenu, for: apiItem)
+        
+        menu.addItem(settingsItem)
+        menu.setSubmenu(settingsSubmenu, for: settingsItem)
         
         menu.addItem(NSMenuItem.separator())
         
@@ -324,11 +339,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         
         menu.addItem(NSMenuItem.separator())
         
-        // About menu item
-        menu.addItem(NSMenuItem(title: localized("about"), action: #selector(showAbout), keyEquivalent: ""))
+        // Help submenu
+        let helpItem = NSMenuItem(title: localized("help"), action: nil, keyEquivalent: "")
+        let helpSubmenu = NSMenu()
         
-        // Feedback menu item
-        menu.addItem(NSMenuItem(title: localized("feedback"), action: #selector(openFeedback), keyEquivalent: ""))
+        helpSubmenu.addItem(NSMenuItem(title: localized("about"), action: #selector(showAbout), keyEquivalent: ""))
+        helpSubmenu.addItem(NSMenuItem(title: localized("feedback"), action: #selector(openFeedback), keyEquivalent: ""))
+        
+        menu.addItem(helpItem)
+        menu.setSubmenu(helpSubmenu, for: helpItem)
         
         // Quit menu item
         menu.addItem(NSMenuItem(title: localized("quit"), action: #selector(quit), keyEquivalent: "q"))
@@ -337,6 +356,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
     
     func applicationDidFinishLaunching(_ aNotification: Notification) {
+        // 加载语言设置
+        isEnglish = UserDefaults.standard.bool(forKey: "isEnglish")
+        
         loadCustomSymbols()
         
         // 加载上次选择的交易对
@@ -476,6 +498,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         if isAutoSwitchApi && failedAttempts >= 3 {
             switchToNextApi()
             failedAttempts = 0
+        }
+    }
+    
+    @objc func openContract(_ sender: NSMenuItem) {
+        if let urlString = sender.representedObject as? String,
+           let url = URL(string: urlString) {
+            NSWorkspace.shared.open(url)
         }
     }
 }
