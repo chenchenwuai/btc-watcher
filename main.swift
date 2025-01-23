@@ -17,25 +17,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var isAutoSwitchApi: Bool = true
     private var failedAttempts: Int = 0
     
-    private let apiEndpoints = [
-        "https://api.binance.com/api/v3/ticker/price",
-        "https://api1.binance.com/api/v3/ticker/price",
-        "https://api2.binance.com/api/v3/ticker/price",
-        "https://api3.binance.com/api/v3/ticker/price",
-        "https://api4.binance.com/api/v3/ticker/price"
-    ]
+    private let apiEndpoints = Constants.apiEndpoints
+    private var symbols = Constants.defaultSymbols
+    private let defaultSymbols = Constants.defaultSymbols
     
-    private var symbols = [
-        ("BTC", "BTCUSDT", "₿"),
-        ("ETH", "ETHUSDT", "Ξ"),
-        ("DOGE", "DOGEUSDT", "Ð")
-    ]
-    
-    private let defaultSymbols = [
-        ("BTC", "BTCUSDT", "₿"),
-        ("ETH", "ETHUSDT", "Ξ"),
-        ("DOGE", "DOGEUSDT", "Ð")
-    ]
+    func localized(_ key: String) -> String {
+        return Constants.localized(key, isEnglish: isEnglish)
+    }
     
     private func loadCustomSymbols() {
         if let savedData = UserDefaults.standard.data(forKey: "customSymbols"),
@@ -55,65 +43,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         if let encodedData = try? JSONEncoder().encode(coinSymbols) {
             UserDefaults.standard.set(encodedData, forKey: "customSymbols")
         }
-    }
-    
-    // Localization
-    // 在 localizedStrings 中添加
-    private let localizedStrings: [String: [Bool: String]] = [
-        "loading": [true: "Loading...", false: "加载中..."],
-        "addCoin": [true: "Add Custom Coin...", false: "添加自定义币种..."],
-        "updateInterval": [true: "Update Interval", false: "更新频率"],
-        "language": [true: "切换到中文", false: "Switch to English"],
-        "quit": [true: "Quit", false: "退出"],
-        "addCoinTitle": [true: "Add Custom Coin", false: "添加自定义币种"],
-        "addCoinMsg": [true: "Enter the coin symbol (e.g., BTCUSDT):", false: "输入币种代码（例如：BTCUSDT）："],
-        "ok": [true: "OK", false: "确定"],
-        "cancel": [true: "Cancel", false: "取消"],
-        "error": [true: "Error", false: "错误"],
-        "invalidCoin": [true: "Invalid coin symbol or API error", false: "无效的币种代码或API错误"],
-        "apiEndpoint": [true: "API Endpoint", false: "API接口"],
-        "autoSwitch": [true: "Auto Switch API", false: "自动切换API"],
-        "manualApi": [true: "Manual API", false: "手动选择API"],
-        "api": [true: "API", false: "接口"],
-        "about": [true: "About", false: "关于"],
-        "aboutTitle": [true: "About BTC Watcher", false: "关于 BTC Watcher"],
-        "aboutMessage": [true: """
-            BTC Watcher v1.1.0
-            
-            A lightweight cryptocurrency price tracking app for macOS.
-            
-            Features:
-            • Real-time price updates
-            • Multiple coins support (BTC, ETH, DOGE, etc.)
-            • Custom coin addition
-            • Auto API switching
-            • Multi-language support
-            
-            Created by chenwuai
-            """,
-            false: """
-            BTC Watcher v1.1.0
-            
-            一个轻量级的 macOS 加密货币价格跟踪应用。
-            
-            功能特点：
-            • 实时价格更新
-            • 支持多种币种（BTC、ETH、DOGE 等）
-            • 自定义币种添加
-            • 自动API切换
-            • 多语言支持
-            
-            由 chenwuai 开发
-            """],
-        "feedback": [true: "Feedback", false: "反馈"],
-        "help": [true: "Help", false: "帮助"],
-        "settings": [true: "Settings", false: "设置"],
-        "delete": [true: "Delete", false: "删除"],
-        "viewContract": [true: "View Contract", false: "查看合约"],
-    ]
-    
-    func localized(_ key: String) -> String {
-        return localizedStrings[key]?[isEnglish] ?? key
     }
     
     func getCurrentApiEndpoint() -> String {
@@ -290,9 +219,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(NSMenuItem.separator())
         
         // Add contract link menu item
-        let contractUrl = isEnglish 
-            ? "https://www.binance.com/en/futures/\(currentSymbol)"
-            : "https://www.binance.com/zh-CN/futures/\(currentSymbol)"
+        let contractUrl = Constants.getContractUrl(symbol: currentSymbol, isEnglish: isEnglish)
         let contractItem = NSMenuItem(title: localized("viewContract"), action: #selector(openContract), keyEquivalent: "")
         contractItem.representedObject = contractUrl
         menu.addItem(contractItem)
@@ -339,10 +266,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         
         menu.addItem(NSMenuItem.separator())
         
+        // 在 setupMenu 函数中的帮助菜单部分：
         // Help submenu
         let helpItem = NSMenuItem(title: localized("help"), action: nil, keyEquivalent: "")
         let helpSubmenu = NSMenu()
         
+        helpSubmenu.addItem(NSMenuItem(title: localized("version") + " " + Constants.appVersion, action: nil, keyEquivalent: ""))
         helpSubmenu.addItem(NSMenuItem(title: localized("about"), action: #selector(showAbout), keyEquivalent: ""))
         helpSubmenu.addItem(NSMenuItem(title: localized("feedback"), action: #selector(openFeedback), keyEquivalent: ""))
         
@@ -487,7 +416,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
     
     @objc func openFeedback() {
-        if let url = URL(string: "https://github.com/chenchenwuai/btc-watcher/issues") {
+        if let url = URL(string: Constants.feedbackUrl) {
             NSWorkspace.shared.open(url)
         }
     }

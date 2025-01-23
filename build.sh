@@ -5,6 +5,7 @@ echo "🚀 Starting build process..."
 # Set variables
 APP_NAME="BTCWatcher"
 MAIN_SWIFT="main.swift"
+CONSTANTS_SWIFT="Constants.swift"
 APP_BUNDLE="$APP_NAME.app"
 APP_EXECUTABLE="$APP_BUNDLE/Contents/MacOS/$APP_NAME"
 ZIP_NAME="$APP_NAME.app.zip"
@@ -22,7 +23,7 @@ mkdir -p "$APP_BUNDLE/Contents/Resources"
 
 # Compile the Swift code
 echo "🔨 Compiling Swift code..."
-swiftc -o "$APP_EXECUTABLE" "$MAIN_SWIFT"
+swiftc -o "$APP_EXECUTABLE" "$CONSTANTS_SWIFT" "$MAIN_SWIFT"
 
 if [ $? -ne 0 ]; then
     echo "❌ Compilation failed!"
