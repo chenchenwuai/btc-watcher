@@ -43,6 +43,7 @@ The script will:
 - 🔄 Real-time price updates (1s, 2s, 5s intervals)
 - 🌐 Automatic API endpoint switching
 - 🌍 English and Chinese language support
+- 🔗 Quick access to Binance futures
 - 🎯 Zero dependencies, pure Swift implementation
 
 ## System Requirements
