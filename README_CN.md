@@ -41,7 +41,9 @@ cd BTCWatcher
 - 💰 支持多种加密货币 (BTC, ETH, DOGE)
 - ➕ 自定义交易对添加
 - 🔄 实时价格更新 (1秒、2秒、5秒间隔)
-- 🌐 自动API端点切换
+- 📊 基准价设置与涨跌幅显示
+- 🌐 现货/合约交易模式切换
+- 🔌 SOCKS5 代理支持（兼容 ClashX）
 - 🌍 中英文双语支持
 - 🔗 快速跳转币安合约
 - 🎯 零依赖，纯 Swift 实现
@@ -67,7 +69,10 @@ cd BTCWatcher
 
 ### 自定义设置
 - 更新频率：可选 1秒、2秒或 5秒
+- 交易模式：切换现货/合约模式
 - API 接口：自动或手动选择
+- 代理设置：配置 SOCKS5 代理（默认端口 7890，适配 ClashX）
+- 基准价：为每个币种设置基准价，追踪涨跌幅
 - 语言：切换中英文界面
 - 自定义：添加自定义交易对
 
@@ -100,11 +105,14 @@ swiftc -o BTCWatcher.app/Contents/MacOS/BTCWatcher main.swift
 ## 数据来源
 
 价格数据通过以下 Binance API 接口获取：
+
+**现货模式：**
 - api.binance.com
-- api1.binance.com
-- api2.binance.com
-- api3.binance.com
-- api4.binance.com
+- api1-4.binance.com
+
+**合约模式：**
+- fapi.binance.com
+- fapi1-4.binance.com
 
 ## 技术细节
 
