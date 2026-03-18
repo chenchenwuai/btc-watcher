@@ -1,14 +1,22 @@
 import Foundation
 
 struct Constants {
-    static let appVersion = "v1.2.1"
+    static let appVersion = "v1.3.0"
     
-    static let apiEndpoints = [
+    static let spotApiEndpoints = [
         "https://api.binance.com/api/v3/ticker/price",
         "https://api1.binance.com/api/v3/ticker/price",
         "https://api2.binance.com/api/v3/ticker/price",
         "https://api3.binance.com/api/v3/ticker/price",
         "https://api4.binance.com/api/v3/ticker/price"
+    ]
+    
+    static let futuresApiEndpoints = [
+        "https://fapi.binance.com/fapi/v1/ticker/price",
+        "https://fapi1.binance.com/fapi/v1/ticker/price",
+        "https://fapi2.binance.com/fapi/v1/ticker/price",
+        "https://fapi3.binance.com/fapi/v1/ticker/price",
+        "https://fapi4.binance.com/fapi/v1/ticker/price"
     ]
     
     static let defaultSymbols = [
@@ -71,6 +79,13 @@ struct Constants {
         "settings": [true: "Settings", false: "设置"],
         "delete": [true: "Delete", false: "删除"],
         "viewContract": [true: "View Contract", false: "查看合约"],
+        "tradingMode": [true: "Trading Mode", false: "交易模式"],
+        "spotMode": [true: "Spot", false: "现货"],
+        "futuresMode": [true: "Futures", false: "合约"],
+        "proxySettings": [true: "Proxy Settings", false: "代理设置"],
+        "proxyHost": [true: "Proxy Host", false: "代理主机"],
+        "proxyPort": [true: "Proxy Port", false: "代理端口"],
+        "enableProxy": [true: "Enable Proxy", false: "启用代理"],
     ]
     
     static func localized(_ key: String, isEnglish: Bool) -> String {

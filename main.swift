@@ -17,7 +17,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var isAutoSwitchApi: Bool = true
     private var failedAttempts: Int = 0
     
-    private let apiEndpoints = Constants.apiEndpoints
+    private var isFuturesMode: Bool = false
+    private var proxyHost: String = "127.0.0.1"
+    private var proxyPort: String = "7890"
+    private var isProxyEnabled: Bool = false
+    private var urlSession: URLSession = URLSession.shared
+    
+    private var apiEndpoints: [String] {
+        return isFuturesMode ? Constants.futuresApiEndpoints : Constants.spotApiEndpoints
+    }
+    
     private var symbols = Constants.defaultSymbols
     private let defaultSymbols = Constants.defaultSymbols
     
@@ -47,6 +56,20 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     
     func getCurrentApiEndpoint() -> String {
         return apiEndpoints[currentApiIndex]
+    }
+    
+    private func configureUrlSession() {
+        if isProxyEnabled && !proxyHost.isEmpty {
+            let config = URLSessionConfiguration.default
+            config.connectionProxyDictionary = [
+                kCFNetworkProxiesSOCKSProxy: proxyHost,
+                kCFNetworkProxiesSOCKSPort: Int(proxyPort) ?? 1080,
+                kCFNetworkProxiesSOCKSEnable: 1
+            ]
+            urlSession = URLSession(configuration: config)
+        } else {
+            urlSession = URLSession.shared
+        }
     }
     
     func showError(_ message: String) {
@@ -98,7 +121,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func updatePrice() {
         guard let url = URL(string: "\(apiEndpoints[currentApiIndex])?symbol=\(currentSymbol)") else { return }
         
-        URLSession.shared.dataTask(with: url) { [weak self] data, response, error in
+        urlSession.dataTask(with: url) { [weak self] data, response, error in
             guard let self = self else { return }
             
             if let error = error {
@@ -136,7 +159,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         
         guard let url = URL(string: "\(getCurrentApiEndpoint())?symbol=\(symbol)") else { return }
         
-        URLSession.shared.dataTask(with: url) { [weak self] data, response, error in
+        urlSession.dataTask(with: url) { [weak self] data, response, error in
             guard let self,
                   let data = data,
                   let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
@@ -230,6 +253,18 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let settingsItem = NSMenuItem(title: localized("settings"), action: nil, keyEquivalent: "")
         let settingsSubmenu = NSMenu()
         
+        // Trading Mode submenu
+        let tradingModeItem = NSMenuItem(title: localized("tradingMode"), action: nil, keyEquivalent: "")
+        let tradingModeSubmenu = NSMenu()
+        let spotItem = NSMenuItem(title: localized("spotMode"), action: #selector(setSpotMode), keyEquivalent: "")
+        spotItem.state = !isFuturesMode ? .on : .off
+        tradingModeSubmenu.addItem(spotItem)
+        let futuresItem = NSMenuItem(title: localized("futuresMode"), action: #selector(setFuturesMode), keyEquivalent: "")
+        futuresItem.state = isFuturesMode ? .on : .off
+        tradingModeSubmenu.addItem(futuresItem)
+        settingsSubmenu.addItem(tradingModeItem)
+        settingsSubmenu.setSubmenu(tradingModeSubmenu, for: tradingModeItem)
+        
         // Update Interval submenu
         let intervalItem = NSMenuItem(title: localized("updateInterval"), action: nil, keyEquivalent: "")
         let intervalSubmenu = NSMenu()
@@ -255,6 +290,20 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
         settingsSubmenu.addItem(apiItem)
         settingsSubmenu.setSubmenu(apiSubmenu, for: apiItem)
+        
+        // Proxy Settings submenu
+        let proxyItem = NSMenuItem(title: localized("proxySettings"), action: nil, keyEquivalent: "")
+        let proxySubmenu = NSMenu()
+        let enableProxyItem = NSMenuItem(title: localized("enableProxy"), action: #selector(toggleProxy), keyEquivalent: "")
+        enableProxyItem.state = isProxyEnabled ? .on : .off
+        proxySubmenu.addItem(enableProxyItem)
+        proxySubmenu.addItem(NSMenuItem.separator())
+        let proxyHostItem = NSMenuItem(title: "\(localized("proxyHost")): \(proxyHost)", action: #selector(setProxyHost), keyEquivalent: "")
+        proxySubmenu.addItem(proxyHostItem)
+        let proxyPortItem = NSMenuItem(title: "\(localized("proxyPort")): \(proxyPort)", action: #selector(setProxyPort), keyEquivalent: "")
+        proxySubmenu.addItem(proxyPortItem)
+        settingsSubmenu.addItem(proxyItem)
+        settingsSubmenu.setSubmenu(proxySubmenu, for: proxyItem)
         
         menu.addItem(settingsItem)
         menu.setSubmenu(settingsSubmenu, for: settingsItem)
@@ -287,6 +336,21 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ aNotification: Notification) {
         // 加载语言设置
         isEnglish = UserDefaults.standard.bool(forKey: "isEnglish")
+        
+        // 加载交易模式设置
+        isFuturesMode = UserDefaults.standard.bool(forKey: "isFuturesMode")
+        
+        // 加载代理设置
+        isProxyEnabled = UserDefaults.standard.bool(forKey: "isProxyEnabled")
+        if let savedProxyHost = UserDefaults.standard.string(forKey: "proxyHost"), !savedProxyHost.isEmpty {
+            proxyHost = savedProxyHost
+        }
+        if let savedProxyPort = UserDefaults.standard.string(forKey: "proxyPort"), !savedProxyPort.isEmpty {
+            proxyPort = savedProxyPort
+        }
+        
+        // 配置 URLSession（根据代理设置）
+        configureUrlSession()
         
         loadCustomSymbols()
         
@@ -434,6 +498,91 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         if let urlString = sender.representedObject as? String,
            let url = URL(string: urlString) {
             NSWorkspace.shared.open(url)
+        }
+    }
+    
+    @objc func setSpotMode() {
+        isFuturesMode = false
+        UserDefaults.standard.set(isFuturesMode, forKey: "isFuturesMode")
+        currentApiIndex = 0
+        setupMenu()
+        updatePrice()
+    }
+    
+    @objc func setFuturesMode() {
+        isFuturesMode = true
+        UserDefaults.standard.set(isFuturesMode, forKey: "isFuturesMode")
+        currentApiIndex = 0
+        setupMenu()
+        updatePrice()
+    }
+    
+    @objc func toggleProxy() {
+        isProxyEnabled = !isProxyEnabled
+        UserDefaults.standard.set(isProxyEnabled, forKey: "isProxyEnabled")
+        configureUrlSession()
+        setupMenu()
+    }
+    
+    @objc func setProxyHost() {
+        let alert = NSAlert()
+        alert.messageText = localized("proxySettings")
+        alert.informativeText = localized("proxyHost")
+        
+        let input = NSTextField(frame: NSRect(x: 0, y: 0, width: 200, height: 24))
+        input.stringValue = proxyHost
+        input.placeholderString = "127.0.0.1"
+        alert.accessoryView = input
+        alert.addButton(withTitle: localized("ok"))
+        alert.addButton(withTitle: localized("cancel"))
+        
+        NSApp.activate(ignoringOtherApps: true)
+        
+        DispatchQueue.main.async {
+            input.window?.makeFirstResponder(input)
+        }
+        
+        let response = alert.runModal()
+        
+        if response == .alertFirstButtonReturn {
+            let newHost = input.stringValue.trimmingCharacters(in: .whitespaces)
+            if !newHost.isEmpty {
+                proxyHost = newHost
+                UserDefaults.standard.set(proxyHost, forKey: "proxyHost")
+                configureUrlSession()
+                setupMenu()
+            }
+        }
+    }
+    
+    @objc func setProxyPort() {
+        let alert = NSAlert()
+        alert.messageText = localized("proxySettings")
+        alert.informativeText = localized("proxyPort")
+        
+        let input = NSTextField(frame: NSRect(x: 0, y: 0, width: 200, height: 24))
+        input.stringValue = proxyPort
+        input.placeholderString = "7890"
+        alert.accessoryView = input
+        alert.addButton(withTitle: localized("ok"))
+        alert.addButton(withTitle: localized("cancel"))
+        
+        NSApp.activate(ignoringOtherApps: true)
+        
+        DispatchQueue.main.async {
+            input.window?.makeFirstResponder(input)
+        }
+        
+        let response = alert.runModal()
+        
+        if response == .alertFirstButtonReturn {
+            let newPort = input.stringValue.trimmingCharacters(in: .whitespaces)
+            if !newPort.isEmpty && Int(newPort) != nil {
+                proxyPort = newPort
+                UserDefaults.standard.set(proxyPort, forKey: "proxyPort")
+                configureUrlSession()
+                setupMenu()
+            }
         }
     }
 }
