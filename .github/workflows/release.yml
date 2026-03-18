@@ -1,0 +1,33 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Swift
+        uses: swift-actions/setup-swift@v1
+        with:
+          swift-version: '5.9'
+      
+      - name: Build Application
+        run: |
+          chmod +x build.sh
+          ./build.sh
+      
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: BTCWatcher.app.zip
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
