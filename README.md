@@ -41,7 +41,9 @@ The script will:
 - 💰 Multiple cryptocurrency support (BTC, ETH, DOGE)
 - ➕ Custom coin pair addition
 - 🔄 Real-time price updates (1s, 2s, 5s intervals)
-- 🌐 Automatic API endpoint switching
+- 📊 Base price tracking with percentage change display
+- 🌐 Spot/Futures trading mode switch
+- 🔌 SOCKS5 proxy support (ClashX compatible)
 - 🌍 English and Chinese language support
 - 🔗 Quick access to Binance futures
 - 🎯 Zero dependencies, pure Swift implementation
@@ -60,7 +62,10 @@ The script will:
 
 ### Customization
 - Update Intervals: Choose between 1, 2, or 5 seconds
+- Trading Mode: Switch between Spot and Futures
 - API Endpoints: Auto or manual selection
+- Proxy Settings: Configure SOCKS5 proxy (default port 7890 for ClashX)
+- Base Price: Set base price for each coin to track percentage change
 - Language: Switch between English and Chinese
 - Custom Pairs: Add your own trading pairs
 
@@ -93,11 +98,14 @@ swiftc -o BTCWatcher.app/Contents/MacOS/BTCWatcher main.swift
 ## Data Source
 
 Price data is fetched from Binance API through multiple endpoints:
+
+**Spot Mode:**
 - api.binance.com
-- api1.binance.com
-- api2.binance.com
-- api3.binance.com
-- api4.binance.com
+- api1-4.binance.com
+
+**Futures Mode:**
+- fapi.binance.com
+- fapi1-4.binance.com
 
 ## Technical Details
 
