@@ -22,6 +22,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var proxyPort: String = "7890"
     private var isProxyEnabled: Bool = false
     private var urlSession: URLSession = URLSession.shared
+    private var basePrices: [String: Double] = [:]
     
     private var apiEndpoints: [String] {
         return isFuturesMode ? Constants.futuresApiEndpoints : Constants.spotApiEndpoints
@@ -93,6 +94,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         print("Switching to API \(currentApiIndex + 1)")
     }
     
+    func calculateChangePercent(current: Double, base: Double?) -> String {
+        guard let base = base, base > 0 else { return "" }
+        let percent = ((current - base) / base) * 100
+        let sign = percent >= 0 ? "+" : ""
+        return String(format: "%@%.2f%%", sign, percent)
+    }
+    
     func formatPrice(_ price: Double) -> String {
         // Format price based on its value
         let decimals: Int
@@ -137,7 +145,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 DispatchQueue.main.async {
                     self.failedAttempts = 0
                     self.currentPrice = self.formatPrice(priceValue)
-                    self.statusItem.button?.title = "\(self.currentIcon) \(self.currentPrice)"
+                    let basePrice = self.basePrices[self.currentSymbol]
+                    let changeStr = self.calculateChangePercent(current: priceValue, base: basePrice)
+                    let displayTitle = changeStr.isEmpty ? "\(self.currentIcon) \(self.currentPrice)" : "\(self.currentIcon) \(self.currentPrice) (\(changeStr))"
+                    self.statusItem.button?.title = displayTitle
                 }
             }
         }.resume()
@@ -229,11 +240,31 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             item.representedObject = symbol
             item.state = symbol == currentSymbol ? .on : .off
             
+            // 为每个币种添加子菜单
+            let coinSubmenu = NSMenu()
+            
+            // 设置基准价
+            let setBaseItem = NSMenuItem(title: localized("setBasePrice"), action: #selector(setBasePrice(_:)), keyEquivalent: "")
+            setBaseItem.representedObject = symbol
+            coinSubmenu.addItem(setBaseItem)
+            
+            // 清除基准价（如果已设置）
+            if basePrices[symbol] != nil {
+                let clearBaseItem = NSMenuItem(title: localized("clearBasePrice"), action: #selector(clearBasePrice(_:)), keyEquivalent: "")
+                clearBaseItem.representedObject = symbol
+                coinSubmenu.addItem(clearBaseItem)
+            }
+            
+            // 删除自定义币种
             if !defaultSymbols.contains(where: { $0.1 == symbol }) {
+                coinSubmenu.addItem(NSMenuItem.separator())
                 let deleteItem = NSMenuItem(title: localized("delete"), action: #selector(deleteCoin(_:)), keyEquivalent: "")
                 deleteItem.representedObject = symbol
-                item.submenu = NSMenu()
-                item.submenu?.addItem(deleteItem)
+                coinSubmenu.addItem(deleteItem)
+            }
+            
+            if coinSubmenu.items.count > 0 {
+                item.submenu = coinSubmenu
             }
             
             menu.addItem(item)
@@ -351,6 +382,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         
         // 配置 URLSession（根据代理设置）
         configureUrlSession()
+        
+        // 加载基准价设置
+        if let savedBasePrices = UserDefaults.standard.dictionary(forKey: "basePrices") as? [String: Double] {
+            basePrices = savedBasePrices
+        }
         
         loadCustomSymbols()
         
@@ -584,6 +620,57 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 setupMenu()
             }
         }
+    }
+    
+    @objc func setBasePrice(_ sender: NSMenuItem) {
+        guard let symbol = sender.representedObject as? String else { return }
+        
+        let alert = NSAlert()
+        alert.messageText = localized("setBasePrice")
+        alert.informativeText = "\(symbol)"
+        
+        let input = NSTextField(frame: NSRect(x: 0, y: 0, width: 200, height: 24))
+        input.placeholderString = "60000.00"
+        if let existingPrice = basePrices[symbol] {
+            input.stringValue = String(existingPrice)
+        }
+        alert.accessoryView = input
+        alert.addButton(withTitle: localized("ok"))
+        alert.addButton(withTitle: localized("cancel"))
+        
+        NSApp.activate(ignoringOtherApps: true)
+        
+        DispatchQueue.main.async {
+            input.window?.makeFirstResponder(input)
+        }
+        
+        let response = alert.runModal()
+        
+        if response == .alertFirstButtonReturn {
+            let priceString = input.stringValue.trimmingCharacters(in: .whitespaces)
+            if let price = Double(priceString), price > 0 {
+                basePrices[symbol] = price
+                saveBasePrices()
+                setupMenu()
+                if symbol == currentSymbol {
+                    updatePrice()
+                }
+            }
+        }
+    }
+    
+    @objc func clearBasePrice(_ sender: NSMenuItem) {
+        guard let symbol = sender.representedObject as? String else { return }
+        basePrices.removeValue(forKey: symbol)
+        saveBasePrices()
+        setupMenu()
+        if symbol == currentSymbol {
+            updatePrice()
+        }
+    }
+    
+    private func saveBasePrices() {
+        UserDefaults.standard.set(basePrices, forKey: "basePrices")
     }
 }
 
