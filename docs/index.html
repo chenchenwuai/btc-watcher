@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BTCWatcher - macOS 加密货币价格追踪</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+            background: #13c5cf;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .card {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 600px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .header h1 {
+            font-size: 2.5rem;
+            color: #1a1a2e;
+            margin-bottom: 5px;
+        }
+        .header p {
+            color: #666;
+            font-size: 0.95rem;
+        }
+        .demo {
+            background: #1a1a2e;
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            margin-bottom: 25px;
+        }
+        .demo-text {
+            color: #fff;
+            font-size: 1.5rem;
+            font-family: 'SF Mono', Monaco, monospace;
+        }
+        .demo-text .change { color: #fff; }
+        .features {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin-bottom: 25px;
+        }
+        .feature {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            font-size: 0.85rem;
+        }
+        .feature span { font-size: 1.2rem; }
+        .download {
+            display: block;
+            width: 100%;
+            padding: 15px;
+            background: #13c5cf;
+            color: white;
+            text-align: center;
+            border-radius: 12px;
+            text-decoration: none;
+            font-weight: bold;
+            transition: transform 0.2s;
+        }
+        .download:hover { transform: scale(1.02); }
+        .footer {
+            text-align: center;
+            margin-top: 20px;
+            font-size: 0.8rem;
+            color: #999;
+        }
+        .footer a { color: #13c5cf; text-decoration: none; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <div class="header">
+            <h1>BTCWatcher</h1>
+            <p>macOS 菜单栏加密货币价格追踪 · v1.3.0</p>
+        </div>
+        
+        <div class="demo">
+            <div class="demo-text">₿ 65000.00 <span class="change">(+5.25%)</span></div>
+        </div>
+        
+        <div class="features">
+            <div class="feature"><span>📊</span> 基准价与涨跌幅</div>
+            <div class="feature"><span>🌐</span> 现货/合约切换</div>
+            <div class="feature"><span>🔌</span> SOCKS5 代理</div>
+            <div class="feature"><span>💰</span> 多币种支持</div>
+            <div class="feature"><span>🌍</span> 中英文双语</div>
+            <div class="feature"><span>🚀</span> 零依赖轻量</div>
+        </div>
+        
+        <a href="https://github.com/chenchenwuai/btc-watcher/releases/latest" class="download">免费下载</a>
+        
+        <div class="footer">
+            <a href="https://github.com/chenchenwuai/btc-watcher">GitHub</a> · MIT 协议
+        </div>
+    </div>
+</body>
+</html>
