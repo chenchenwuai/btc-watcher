@@ -94,14 +94,23 @@ cd BTCWatcher
 ### 从源码编译
 ```bash
 # 编译应用
-swiftc -o BTCWatcher.app/Contents/MacOS/BTCWatcher main.swift
+./build.sh
 
 # 生成应用图标
 ./generate_icons.sh
 ```
 
 ### 项目结构
-- `main.swift`：主程序代码
+- `Sources/BTCMenuBar/main.swift`：应用启动入口
+- `Sources/BTCMenuBar/ApplicationDelegate.swift`：应用生命周期和共享状态
+- `Sources/BTCMenuBar/MenuBuilder.swift`：菜单构建
+- `Sources/BTCMenuBar/MenuActions.swift`：菜单动作和应用级命令
+- `Sources/BTCMenuBar/PriceService.swift`：价格获取、API 切换和代理会话配置
+- `Sources/BTCMenuBar/SettingsStore.swift`：UserDefaults 读取和保存
+- `Sources/BTCMenuBar/PositionActions.swift`：基准价和仓位设置
+- `Sources/BTCMenuBar/Formatting.swift`：展示格式化辅助逻辑
+- `Sources/BTCMenuBar/Models.swift`：共享数据模型
+- `Sources/BTCMenuBar/Constants.swift`：静态配置和多语言文案
 - `AppIcon.svg`：应用图标源文件
 - `generate_icons.sh`：图标生成脚本
 - `Info.plist`：应用配置文件

@@ -87,14 +87,23 @@ The script will:
 ### Building from Source
 ```bash
 # Compile the application
-swiftc -o BTCWatcher.app/Contents/MacOS/BTCWatcher main.swift
+./build.sh
 
 # Generate application icons
 ./generate_icons.sh
 ```
 
 ### Project Structure
-- `main.swift`: Main application code
+- `Sources/BTCMenuBar/main.swift`: Application entry point
+- `Sources/BTCMenuBar/ApplicationDelegate.swift`: Application lifecycle and shared state
+- `Sources/BTCMenuBar/MenuBuilder.swift`: Menu construction
+- `Sources/BTCMenuBar/MenuActions.swift`: Menu item actions and app-level commands
+- `Sources/BTCMenuBar/PriceService.swift`: Price fetching, API switching, and proxy session setup
+- `Sources/BTCMenuBar/SettingsStore.swift`: UserDefaults loading and saving
+- `Sources/BTCMenuBar/PositionActions.swift`: Base price and position settings
+- `Sources/BTCMenuBar/Formatting.swift`: Display formatting helpers
+- `Sources/BTCMenuBar/Models.swift`: Shared data models
+- `Sources/BTCMenuBar/Constants.swift`: Static configuration and localized strings
 - `AppIcon.svg`: Application icon source
 - `generate_icons.sh`: Icon generation script
 - `Info.plist`: Application configuration

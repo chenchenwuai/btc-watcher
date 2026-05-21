@@ -9,7 +9,7 @@ let package = Package(
     targets: [
         .executableTarget(
             name: "BTCMenuBar",
-            path: ".",
+            path: "Sources/BTCMenuBar",
             swiftSettings: [
                 .unsafeFlags(["-parse-as-library"])
             ]
