@@ -4,8 +4,6 @@ echo "🚀 Starting build process..."
 
 # Set variables
 APP_NAME="BTCWatcher"
-MAIN_SWIFT="main.swift"
-CONSTANTS_SWIFT="Constants.swift"
 APP_BUNDLE="$APP_NAME.app"
 APP_EXECUTABLE="$APP_BUNDLE/Contents/MacOS/$APP_NAME"
 ZIP_NAME="$APP_NAME.app.zip"
@@ -23,7 +21,11 @@ mkdir -p "$APP_BUNDLE/Contents/Resources"
 
 # Compile the Swift code
 echo "🔨 Compiling Swift code..."
-swiftc -o "$APP_EXECUTABLE" "$CONSTANTS_SWIFT" "$MAIN_SWIFT"
+SWIFT_SOURCES=()
+while IFS= read -r source; do
+    SWIFT_SOURCES+=("$source")
+done < <(find Sources/BTCMenuBar -name "*.swift" -print | sort)
+swiftc -parse-as-library -o "$APP_EXECUTABLE" "${SWIFT_SOURCES[@]}"
 
 if [ $? -ne 0 ]; then
     echo "❌ Compilation failed!"
