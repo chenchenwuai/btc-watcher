@@ -149,6 +149,11 @@ body::after {
   align-items:center;
   gap:6px;
 }
+.lang-switch {
+  display:flex;
+  align-items:center;
+  gap:6px;
+}
 .lang-btn {
   font-family:var(--mono);
   font-size:14px;
@@ -163,6 +168,34 @@ body::after {
 .lang-btn.active { color:var(--purple); }
 .lang-btn:hover  { color:var(--pink); }
 .lang-sep { color:#8878b8; font-size:14px; line-height:1; }
+.mode-btn {
+  display:flex;
+  align-items:center;
+  gap:6px;
+  height:22px;
+  padding:0 8px;
+  font-family:var(--mono);
+  font-size:12px;
+  line-height:1;
+  color:var(--cyan);
+  background:rgba(0,229,255,0.06);
+  border:1px solid var(--border-c);
+  cursor:pointer;
+  letter-spacing:.1em;
+  transition:border-color .2s, color .2s, background .2s;
+}
+.mode-btn:hover {
+  color:var(--text);
+  border-color:rgba(0,229,255,0.45);
+  background:rgba(0,229,255,0.11);
+}
+.mode-dot {
+  width:5px;
+  height:5px;
+  border-radius:50%;
+  background:currentColor;
+  box-shadow:0 0 7px currentColor;
+}
 
 /* ── INNER ── */
 .inner { padding: 28px 28px 26px; }
@@ -332,6 +365,64 @@ h1 {
   margin-bottom:20px;
 }
 
+/* ── PURE MODE ── */
+.pure-panel {
+  display:none;
+  align-items:center;
+  justify-content:center;
+  text-align:center;
+}
+.pure-ticker {
+  display:flex;
+  align-items:baseline;
+  justify-content:center;
+  gap:14px;
+  flex-wrap:wrap;
+}
+.pure-price {
+  font-family:-apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", sans-serif;
+  font-size:2.75rem;
+  font-weight:700;
+  line-height:1;
+  color:var(--text);
+  letter-spacing:0;
+  text-shadow:0 0 24px rgba(0,229,255,0.2);
+}
+.pure-change {
+  font-family:-apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+  font-size:1.15rem;
+  font-weight:600;
+  line-height:1;
+  letter-spacing:0;
+}
+.pure-change.is-up { color:var(--green); }
+.pure-change.is-down { color:var(--red); }
+.card.is-pure .lang-switch,
+.card.is-pure .eyebrow,
+.card.is-pure .title-row,
+.card.is-pure .demo,
+.card.is-pure .divider,
+.card.is-pure .features,
+.card.is-pure .cta-row,
+.card.is-pure .footer-license,
+.card.is-pure .footer-r {
+  display:none;
+}
+.card.is-pure .inner {
+  min-height:406px;
+  padding-top:0;
+  display:grid;
+  grid-template-rows:1fr auto;
+}
+.card.is-pure .pure-panel {
+  display:flex;
+  align-self:center;
+  min-height:0;
+}
+.card.is-pure .footer {
+  justify-content:center;
+}
+
 /* ── FEATURES ── */
 .features {
   display:grid;
@@ -470,6 +561,10 @@ h1 {
   .topbar{padding:8px 16px;}
   .topbar-left{font-size:14px;letter-spacing:.06em;}
   .eyebrow{font-size:14px;letter-spacing:.1em;min-height:28px;}
+  .pure-ticker{gap:10px;}
+  .pure-price{font-size:2rem;}
+  .pure-change{font-size:1rem;}
+  .card.is-pure .inner{min-height:294px;}
   .badge{font-size:14px;padding:3px 6px;}
   .mb-left .mb-item{display:none;}
   .mb-clock{font-size:14px;}
@@ -477,8 +572,10 @@ h1 {
   .t-price{font-size:14px;}
   .t-up,.t-dn{font-size:14px;}
   .footer{flex-direction:column;gap:6px;align-items:flex-start;}
+  .card.is-pure .footer{align-items:center;}
   .footer-l,.footer-r{font-size:14px;}
   .lang-btn,.lang-sep{font-size:14px;}
+  .mode-btn{font-size:12px;}
 }
 </style>
 </head>
@@ -492,9 +589,15 @@ h1 {
       <span data-i18n="live">LIVE · BTCUSDT</span>
     </div>
     <div class="topbar-right">
-      <button class="lang-btn active" data-lang="en">EN</button>
-      <span class="lang-sep">/</span>
-      <button class="lang-btn" data-lang="zh">中文</button>
+      <div class="lang-switch">
+        <button class="lang-btn active" data-lang="en">EN</button>
+        <span class="lang-sep">/</span>
+        <button class="lang-btn" data-lang="zh">中文</button>
+      </div>
+      <button class="mode-btn" type="button" data-mode-toggle>
+        <span class="mode-dot"></span>
+        <span data-i18n="pureMode">PURE</span>
+      </button>
     </div>
   </div>
 
@@ -534,6 +637,13 @@ h1 {
 
     <div class="divider"></div>
 
+    <div class="pure-panel">
+      <div class="pure-ticker">
+        <span class="pure-price" id="pure-price">₿ 65,000.00</span>
+        <span class="pure-change is-up" id="pure-change">(+5.25%)</span>
+      </div>
+    </div>
+
     <!-- FEATURES -->
     <div class="features">
       <div class="feature">
@@ -560,7 +670,7 @@ h1 {
 
     <!-- FOOTER -->
     <div class="footer">
-      <div class="footer-l"><em>◈</em> <span data-i18n="footer">DATA · BINANCE API · MIT LICENSE</span></div>
+      <div class="footer-l"><em>◈</em> <span data-i18n="footerData">DATA · BINANCE API</span><span class="footer-license" data-i18n="footerLicense"> · MIT LICENSE</span></div>
       <div class="footer-r">© 2024 BTCWATCHER</div>
     </div>
   </div>
@@ -578,8 +688,11 @@ const T = {
     f2tag:"DISPLAY",  f2:"Menu bar price display",
     f3tag:"ANALYTICS",f3:"Entry price, PnL & ROI",
     f4tag:"NETWORK",  f4:"Proxy & API failover",
+    pureMode:"PURE",
+    fullMode:"FULL",
     download:"FREE DOWNLOAD",
-    footer:"DATA · BINANCE API · MIT LICENSE"
+    footerData:"DATA · BINANCE API",
+    footerLicense:" · MIT LICENSE"
   },
   zh:{
     title:"BTCWatcher – macOS 加密货币价格追踪",
@@ -591,12 +704,17 @@ const T = {
     f2tag:"菜单显示", f2:"菜单栏价格展示",
     f3tag:"收益分析", f3:"开仓价、盈亏与 ROI",
     f4tag:"网络",     f4:"代理与 API 故障切换",
+    pureMode:"纯净",
+    fullMode:"完整",
     download:"免费下载",
-    footer:"数据 · 币安 API · MIT 协议"
+    footerData:"数据 · 币安 API",
+    footerLicense:" · MIT 协议"
   }
 };
 
 let lang="en";
+let pureMode=false;
+let tickerTimer=null;
 
 function applyLang(l){
   lang=l;
@@ -607,6 +725,20 @@ function applyLang(l){
     if(t[k]!=null) el.textContent=t[k];
   });
   document.querySelectorAll("[data-lang]").forEach(b=>b.classList.toggle("active",b.dataset.lang===l));
+  updateModeLabel();
+}
+
+function updateModeLabel(){
+  const t=T[lang]||T.en;
+  const label=document.querySelector("[data-i18n='pureMode']");
+  if(label) label.textContent=pureMode?t.fullMode:t.pureMode;
+}
+
+function applyMode(next){
+  pureMode=next;
+  document.querySelector(".card").classList.toggle("is-pure",pureMode);
+  updateModeLabel();
+  scheduleTicker();
 }
 
 function fmt(v){
@@ -623,9 +755,13 @@ function renderTicker(d){
   const chg=Number(d.priceChangePercent);
   const sign=chg>=0?"+":"";
   document.getElementById("btc-price").textContent=`₿ ${price}`;
+  document.getElementById("pure-price").textContent=`₿ ${price}`;
   const cel=document.getElementById("btc-change");
+  const pureCel=document.getElementById("pure-change");
   cel.textContent=`(${sign}${chg.toFixed(2)}%)`;
+  pureCel.textContent=cel.textContent;
   cel.className=chg>=0?"t-up":"t-dn";
+  pureCel.className=chg>=0?"pure-change is-up":"pure-change is-down";
 }
 
 function updateClock(){
@@ -640,13 +776,19 @@ async function fetchTicker(){
   }catch(_){renderTicker({lastPrice:"65000",priceChangePercent:"5.25"});}
 }
 
+function scheduleTicker(){
+  if(tickerTimer)clearInterval(tickerTimer);
+  tickerTimer=setInterval(fetchTicker,pureMode?1500:3000);
+}
+
 document.querySelectorAll("[data-lang]").forEach(b=>b.addEventListener("click",()=>applyLang(b.dataset.lang)));
+document.querySelector("[data-mode-toggle]").addEventListener("click",()=>applyMode(!pureMode));
 renderTicker({lastPrice:"65000",priceChangePercent:"5.25"});
 applyLang("en");
 updateClock();
 setInterval(updateClock,1000);
 fetchTicker();
-setInterval(fetchTicker,5000);
+scheduleTicker();
 </script>
 </body>
 </html>
