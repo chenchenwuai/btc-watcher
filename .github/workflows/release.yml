@@ -19,22 +19,7 @@ jobs:
       
       - name: Build Application
         run: |
-          # Create app bundle structure
-          mkdir -p BTCWatcher.app/Contents/MacOS
-          mkdir -p BTCWatcher.app/Contents/Resources
-          # Build with xcrun using macOS SDK, targeting macOS 13.0
-          xcrun swiftc \
-            -target arm64-apple-macos13.0 \
-            -o BTCWatcher.app/Contents/MacOS/BTCWatcher \
-            Constants.swift main.swift
-          # Set permissions and copy resources
-          chmod +x BTCWatcher.app/Contents/MacOS/BTCWatcher
-          cp Info.plist BTCWatcher.app/Contents/ || true
-          cp -r Resources/* BTCWatcher.app/Contents/Resources/ 2>/dev/null || true
-          # Sign and package
-          xattr -cr BTCWatcher.app
-          codesign --force --deep --sign - BTCWatcher.app
-          ditto -c -k --keepParent BTCWatcher.app BTCWatcher.app.zip
+          ./build.sh
       
       - name: Create Release
         uses: softprops/action-gh-release@v3
