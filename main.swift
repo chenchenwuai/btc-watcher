@@ -6,6 +6,14 @@ struct CoinSymbol: Codable {
     let icon: String
 }
 
+struct PositionMetrics {
+    let quantity: Double
+    let margin: Double
+    let notional: Double
+    let pnl: Double
+    let roi: Double
+}
+
 class AppDelegate: NSObject, NSApplicationDelegate {
     var statusItem: NSStatusItem!
     var timer: Timer?
@@ -23,6 +31,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var isProxyEnabled: Bool = false
     private var urlSession: URLSession = URLSession.shared
     private var basePrices: [String: Double] = [:]
+    private var positionDirections: [String: String] = [:]
+    private var positionInputModes: [String: String] = [:]
+    private var positionMargins: [String: Double] = [:]
+    private var positionQuantities: [String: Double] = [:]
+    private var positionLeverages: [String: Double] = [:]
+    private var latestPrices: [String: Double] = [:]
+    private var showMenuBarPrice: Bool = true
+    private var showMenuBarChange: Bool = true
+    private var showMenuBarPnl: Bool = true
+    private var showMenuBarRoi: Bool = true
     
     private var apiEndpoints: [String] {
         return isFuturesMode ? Constants.futuresApiEndpoints : Constants.spotApiEndpoints
@@ -94,11 +112,40 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         print("Switching to API \(currentApiIndex + 1)")
     }
     
-    func calculateChangePercent(current: Double, base: Double?) -> String {
+    func calculateChangePercent(current: Double, base: Double?, direction: String) -> String {
         guard let base = base, base > 0 else { return "" }
-        let percent = ((current - base) / base) * 100
+        let percent = (direction == "short" ? (base - current) : (current - base)) / base * 100
         let sign = percent >= 0 ? "+" : ""
         return String(format: "%@%.2f%%", sign, percent)
+    }
+
+    func calculatePositionMetrics(symbol: String, current: Double) -> PositionMetrics? {
+        guard let entryPrice = basePrices[symbol], entryPrice > 0 else { return nil }
+        let leverage = positionLeverages[symbol] ?? 1
+        guard leverage > 0 else { return nil }
+
+        let mode = positionInputModes[symbol] ?? "margin"
+        let quantity: Double
+        let margin: Double
+        let notional: Double
+
+        if mode == "quantity" {
+            guard let savedQuantity = positionQuantities[symbol], savedQuantity > 0 else { return nil }
+            quantity = savedQuantity
+            notional = entryPrice * savedQuantity
+            margin = notional / leverage
+        } else {
+            guard let savedMargin = positionMargins[symbol], savedMargin > 0 else { return nil }
+            margin = savedMargin
+            notional = savedMargin * leverage
+            quantity = notional / entryPrice
+        }
+
+        let direction = positionDirections[symbol] ?? "long"
+        let pnl = direction == "short" ? (entryPrice - current) * quantity : (current - entryPrice) * quantity
+        let roi = margin > 0 ? pnl / margin * 100 : 0
+
+        return PositionMetrics(quantity: quantity, margin: margin, notional: notional, pnl: pnl, roi: roi)
     }
     
     func formatPrice(_ price: Double) -> String {
@@ -126,8 +173,58 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         return trimmed
     }
     
+    func formatAmount(_ amount: Double, suffix: String = "") -> String {
+        let formatted = String(format: "%.2f", amount)
+        return "\(formatted)\(suffix)"
+    }
+
+    func formatSignedAmount(_ amount: Double, suffix: String = "") -> String {
+        let sign = amount >= 0 ? "+" : ""
+        return "\(sign)\(formatAmount(amount, suffix: suffix))"
+    }
+
+    func formatLeverage(_ leverage: Double) -> String {
+        if leverage.truncatingRemainder(dividingBy: 1) == 0 {
+            return String(format: "%.0fx", leverage)
+        }
+        return String(format: "%.2fx", leverage)
+    }
+
+    func coinName(for symbol: String) -> String {
+        return symbols.first(where: { $0.1 == symbol })?.0 ?? symbol.replacingOccurrences(of: "USDT", with: "")
+    }
+
+    private func updateStatusTitle(symbol: String, priceValue: Double) {
+        currentPrice = formatPrice(priceValue)
+        let basePrice = basePrices[symbol]
+        let direction = positionDirections[symbol] ?? "long"
+        let changeStr = calculateChangePercent(current: priceValue, base: basePrice, direction: direction)
+        var details: [String] = []
+
+        if showMenuBarChange && !changeStr.isEmpty {
+            details.append(changeStr)
+        }
+        if let metrics = calculatePositionMetrics(symbol: symbol, current: priceValue) {
+            if showMenuBarPnl {
+                details.append(formatSignedAmount(metrics.pnl, suffix: "U"))
+            }
+            if showMenuBarRoi {
+                details.append("ROI \(formatSignedAmount(metrics.roi, suffix: "%"))")
+            }
+        }
+
+        var titleParts = [currentIcon]
+        if showMenuBarPrice {
+            titleParts.append(currentPrice)
+        }
+        let titlePrefix = titleParts.joined(separator: " ")
+        let displayTitle = details.isEmpty ? titlePrefix : "\(titlePrefix) (\(details.joined(separator: ", ")))"
+        statusItem.button?.title = displayTitle
+    }
+
     func updatePrice() {
-        guard let url = URL(string: "\(apiEndpoints[currentApiIndex])?symbol=\(currentSymbol)") else { return }
+        let symbol = currentSymbol
+        guard let url = URL(string: "\(apiEndpoints[currentApiIndex])?symbol=\(symbol)") else { return }
         
         urlSession.dataTask(with: url) { [weak self] data, response, error in
             guard let self = self else { return }
@@ -144,11 +241,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                let priceValue = Double(priceString) {
                 DispatchQueue.main.async {
                     self.failedAttempts = 0
-                    self.currentPrice = self.formatPrice(priceValue)
-                    let basePrice = self.basePrices[self.currentSymbol]
-                    let changeStr = self.calculateChangePercent(current: priceValue, base: basePrice)
-                    let displayTitle = changeStr.isEmpty ? "\(self.currentIcon) \(self.currentPrice)" : "\(self.currentIcon) \(self.currentPrice) (\(changeStr))"
-                    self.statusItem.button?.title = displayTitle
+                    self.latestPrices[symbol] = priceValue
+                    guard symbol == self.currentSymbol else { return }
+                    self.updateStatusTitle(symbol: symbol, priceValue: priceValue)
                 }
             }
         }.resume()
@@ -247,6 +342,33 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             let setBaseItem = NSMenuItem(title: localized("setBasePrice"), action: #selector(setBasePrice(_:)), keyEquivalent: "")
             setBaseItem.representedObject = symbol
             coinSubmenu.addItem(setBaseItem)
+
+            if basePrices[symbol] != nil {
+                let direction = positionDirections[symbol] ?? "long"
+                let longItem = NSMenuItem(title: localized("longPosition"), action: #selector(setLongPosition(_:)), keyEquivalent: "")
+                longItem.representedObject = symbol
+                longItem.state = direction == "long" ? .on : .off
+                coinSubmenu.addItem(longItem)
+
+                let shortItem = NSMenuItem(title: localized("shortPosition"), action: #selector(setShortPosition(_:)), keyEquivalent: "")
+                shortItem.representedObject = symbol
+                shortItem.state = direction == "short" ? .on : .off
+                coinSubmenu.addItem(shortItem)
+
+                let marginItem = NSMenuItem(title: localized("setMargin"), action: #selector(setPositionMargin(_:)), keyEquivalent: "")
+                marginItem.representedObject = symbol
+                coinSubmenu.addItem(marginItem)
+
+                let quantityItem = NSMenuItem(title: localized("setQuantity"), action: #selector(setPositionQuantity(_:)), keyEquivalent: "")
+                quantityItem.representedObject = symbol
+                coinSubmenu.addItem(quantityItem)
+
+                let leverageItem = NSMenuItem(title: localized("setLeverage"), action: #selector(setPositionLeverage(_:)), keyEquivalent: "")
+                leverageItem.representedObject = symbol
+                coinSubmenu.addItem(leverageItem)
+
+                addPositionSummaryItems(to: coinSubmenu, for: symbol)
+            }
             
             // 清除基准价（如果已设置）
             if basePrices[symbol] != nil {
@@ -304,6 +426,24 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         intervalSubmenu.addItem(NSMenuItem(title: "5s", action: #selector(setInterval5s), keyEquivalent: "5"))
         settingsSubmenu.addItem(intervalItem)
         settingsSubmenu.setSubmenu(intervalSubmenu, for: intervalItem)
+
+        // Menu bar display submenu
+        let displayItem = NSMenuItem(title: localized("menuBarDisplay"), action: nil, keyEquivalent: "")
+        let displaySubmenu = NSMenu()
+        let showPriceItem = NSMenuItem(title: localized("showPrice"), action: #selector(toggleMenuBarPrice), keyEquivalent: "")
+        showPriceItem.state = showMenuBarPrice ? .on : .off
+        displaySubmenu.addItem(showPriceItem)
+        let showChangeItem = NSMenuItem(title: localized("showChange"), action: #selector(toggleMenuBarChange), keyEquivalent: "")
+        showChangeItem.state = showMenuBarChange ? .on : .off
+        displaySubmenu.addItem(showChangeItem)
+        let showPnlItem = NSMenuItem(title: localized("showPnl"), action: #selector(toggleMenuBarPnl), keyEquivalent: "")
+        showPnlItem.state = showMenuBarPnl ? .on : .off
+        displaySubmenu.addItem(showPnlItem)
+        let showRoiItem = NSMenuItem(title: localized("showRoi"), action: #selector(toggleMenuBarRoi), keyEquivalent: "")
+        showRoiItem.state = showMenuBarRoi ? .on : .off
+        displaySubmenu.addItem(showRoiItem)
+        settingsSubmenu.addItem(displayItem)
+        settingsSubmenu.setSubmenu(displaySubmenu, for: displayItem)
         
         // API settings
         let apiItem = NSMenuItem(title: localized("apiEndpoint"), action: nil, keyEquivalent: "")
@@ -363,13 +503,46 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         
         statusItem.menu = menu
     }
-    
+
+    private func addPositionSummaryItems(to menu: NSMenu, for symbol: String) {
+        let leverage = positionLeverages[symbol] ?? 1
+        let mode = positionInputModes[symbol] ?? "margin"
+
+        menu.addItem(NSMenuItem.separator())
+        let modeTitle = mode == "quantity" ? localized("quantityMode") : localized("marginMode")
+        menu.addItem(NSMenuItem(title: "\(localized("inputMode")): \(modeTitle)", action: nil, keyEquivalent: ""))
+        menu.addItem(NSMenuItem(title: "\(localized("leverage")): \(formatLeverage(leverage))", action: nil, keyEquivalent: ""))
+
+        if mode == "quantity" {
+            if let quantity = positionQuantities[symbol], quantity > 0 {
+                menu.addItem(NSMenuItem(title: "\(localized("quantity")): \(formatPrice(quantity)) \(coinName(for: symbol))", action: nil, keyEquivalent: ""))
+                if let entryPrice = basePrices[symbol], entryPrice > 0 {
+                    let notional = entryPrice * quantity
+                    menu.addItem(NSMenuItem(title: "\(localized("margin")): \(formatAmount(notional / leverage, suffix: "U"))", action: nil, keyEquivalent: ""))
+                    menu.addItem(NSMenuItem(title: "\(localized("notional")): \(formatAmount(notional, suffix: "U"))", action: nil, keyEquivalent: ""))
+                }
+            }
+        } else if let margin = positionMargins[symbol], margin > 0 {
+            menu.addItem(NSMenuItem(title: "\(localized("margin")): \(formatAmount(margin, suffix: "U"))", action: nil, keyEquivalent: ""))
+            menu.addItem(NSMenuItem(title: "\(localized("notional")): \(formatAmount(margin * leverage, suffix: "U"))", action: nil, keyEquivalent: ""))
+            if let entryPrice = basePrices[symbol], entryPrice > 0 {
+                menu.addItem(NSMenuItem(title: "\(localized("quantity")): \(formatPrice(margin * leverage / entryPrice)) \(coinName(for: symbol))", action: nil, keyEquivalent: ""))
+            }
+        }
+    }
+
     func applicationDidFinishLaunching(_ aNotification: Notification) {
         // 加载语言设置
         isEnglish = UserDefaults.standard.bool(forKey: "isEnglish")
         
         // 加载交易模式设置
         isFuturesMode = UserDefaults.standard.bool(forKey: "isFuturesMode")
+
+        // 加载菜单栏显示设置
+        showMenuBarPrice = UserDefaults.standard.object(forKey: "showMenuBarPrice") as? Bool ?? true
+        showMenuBarChange = UserDefaults.standard.object(forKey: "showMenuBarChange") as? Bool ?? true
+        showMenuBarPnl = UserDefaults.standard.object(forKey: "showMenuBarPnl") as? Bool ?? true
+        showMenuBarRoi = UserDefaults.standard.object(forKey: "showMenuBarRoi") as? Bool ?? true
         
         // 加载代理设置
         isProxyEnabled = UserDefaults.standard.bool(forKey: "isProxyEnabled")
@@ -386,6 +559,21 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // 加载基准价设置
         if let savedBasePrices = UserDefaults.standard.dictionary(forKey: "basePrices") as? [String: Double] {
             basePrices = savedBasePrices
+        }
+        if let savedPositionDirections = UserDefaults.standard.dictionary(forKey: "positionDirections") as? [String: String] {
+            positionDirections = savedPositionDirections
+        }
+        if let savedPositionInputModes = UserDefaults.standard.dictionary(forKey: "positionInputModes") as? [String: String] {
+            positionInputModes = savedPositionInputModes
+        }
+        if let savedPositionMargins = UserDefaults.standard.dictionary(forKey: "positionMargins") as? [String: Double] {
+            positionMargins = savedPositionMargins
+        }
+        if let savedPositionQuantities = UserDefaults.standard.dictionary(forKey: "positionQuantities") as? [String: Double] {
+            positionQuantities = savedPositionQuantities
+        }
+        if let savedPositionLeverages = UserDefaults.standard.dictionary(forKey: "positionLeverages") as? [String: Double] {
+            positionLeverages = savedPositionLeverages
         }
         
         loadCustomSymbols()
@@ -449,6 +637,47 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         isAutoSwitchApi = !isAutoSwitchApi
         UserDefaults.standard.set(isAutoSwitchApi, forKey: "autoSwitchApi")
         setupMenu()
+    }
+
+    @objc func toggleMenuBarPrice() {
+        showMenuBarPrice.toggle()
+        saveMenuBarDisplaySettings()
+        refreshStatusTitleFromCache()
+        setupMenu()
+    }
+
+    @objc func toggleMenuBarChange() {
+        showMenuBarChange.toggle()
+        saveMenuBarDisplaySettings()
+        refreshStatusTitleFromCache()
+        setupMenu()
+    }
+
+    @objc func toggleMenuBarPnl() {
+        showMenuBarPnl.toggle()
+        saveMenuBarDisplaySettings()
+        refreshStatusTitleFromCache()
+        setupMenu()
+    }
+
+    @objc func toggleMenuBarRoi() {
+        showMenuBarRoi.toggle()
+        saveMenuBarDisplaySettings()
+        refreshStatusTitleFromCache()
+        setupMenu()
+    }
+
+    private func refreshStatusTitleFromCache() {
+        if let priceValue = latestPrices[currentSymbol] {
+            updateStatusTitle(symbol: currentSymbol, priceValue: priceValue)
+        }
+    }
+
+    private func saveMenuBarDisplaySettings() {
+        UserDefaults.standard.set(showMenuBarPrice, forKey: "showMenuBarPrice")
+        UserDefaults.standard.set(showMenuBarChange, forKey: "showMenuBarChange")
+        UserDefaults.standard.set(showMenuBarPnl, forKey: "showMenuBarPnl")
+        UserDefaults.standard.set(showMenuBarRoi, forKey: "showMenuBarRoi")
     }
     
     @objc func switchApi(_ sender: NSMenuItem) {
@@ -627,13 +856,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         
         let alert = NSAlert()
         alert.messageText = localized("setBasePrice")
-        alert.informativeText = "\(symbol)"
-        
-        let input = NSTextField(frame: NSRect(x: 0, y: 0, width: 200, height: 24))
-        input.placeholderString = "60000.00"
         if let existingPrice = basePrices[symbol] {
-            input.stringValue = String(existingPrice)
+            alert.informativeText = "\(symbol)\n\(localized("basePrice")): \(formatPrice(existingPrice))"
+        } else {
+            alert.informativeText = "\(symbol)"
         }
+
+        let input = NSTextField(frame: NSRect(x: 0, y: 0, width: 200, height: 24))
+        input.placeholderString = localized("emptyBasePriceUsesCurrent")
         alert.accessoryView = input
         alert.addButton(withTitle: localized("ok"))
         alert.addButton(withTitle: localized("cancel"))
@@ -648,13 +878,163 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         
         if response == .alertFirstButtonReturn {
             let priceString = input.stringValue.trimmingCharacters(in: .whitespaces)
-            if let price = Double(priceString), price > 0 {
-                basePrices[symbol] = price
-                saveBasePrices()
-                setupMenu()
-                if symbol == currentSymbol {
-                    updatePrice()
+            if priceString.isEmpty {
+                setBasePriceToCurrentPrice(for: symbol)
+            } else if let price = Double(priceString), price > 0 {
+                updateBasePrice(price, for: symbol)
+            }
+        }
+    }
+
+    private func setBasePriceToCurrentPrice(for symbol: String) {
+        if let latestPrice = latestPrices[symbol] {
+            updateBasePrice(latestPrice, for: symbol)
+            return
+        }
+
+        guard let url = URL(string: "\(getCurrentApiEndpoint())?symbol=\(symbol)") else { return }
+
+        urlSession.dataTask(with: url) { [weak self] data, _, _ in
+            guard let self,
+                  let data = data,
+                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let priceString = json["price"] as? String,
+                  let price = Double(priceString),
+                  price > 0
+            else {
+                DispatchQueue.main.async {
+                    self?.showError("invalidCoin")
                 }
+                return
+            }
+
+            DispatchQueue.main.async {
+                self.latestPrices[symbol] = price
+                self.updateBasePrice(price, for: symbol)
+            }
+        }.resume()
+    }
+
+    private func updateBasePrice(_ price: Double, for symbol: String) {
+        basePrices[symbol] = price
+        if positionDirections[symbol] == nil {
+            positionDirections[symbol] = "long"
+        }
+        saveBasePrices()
+        savePositionSettings()
+        setupMenu()
+        if symbol == currentSymbol {
+            updatePrice()
+        }
+    }
+
+    @objc func setLongPosition(_ sender: NSMenuItem) {
+        setPositionDirection("long", sender: sender)
+    }
+
+    @objc func setShortPosition(_ sender: NSMenuItem) {
+        setPositionDirection("short", sender: sender)
+    }
+
+    private func setPositionDirection(_ direction: String, sender: NSMenuItem) {
+        guard let symbol = sender.representedObject as? String else { return }
+        positionDirections[symbol] = direction
+        savePositionDirections()
+        setupMenu()
+        if symbol == currentSymbol {
+            updatePrice()
+        }
+    }
+
+    @objc func setPositionMargin(_ sender: NSMenuItem) {
+        guard let symbol = sender.representedObject as? String else { return }
+        showPositionValueAlert(
+            symbol: symbol,
+            titleKey: "setMargin",
+            placeholder: "10",
+            existingValue: positionMargins[symbol],
+            suffix: "U"
+        ) { [weak self] value in
+            self?.positionMargins[symbol] = value
+            self?.positionInputModes[symbol] = "margin"
+            self?.savePositionSettings()
+            self?.setupMenu()
+            if symbol == self?.currentSymbol {
+                self?.updatePrice()
+            }
+        }
+    }
+
+    @objc func setPositionQuantity(_ sender: NSMenuItem) {
+        guard let symbol = sender.representedObject as? String else { return }
+        showPositionValueAlert(
+            symbol: symbol,
+            titleKey: "setQuantity",
+            placeholder: "10000",
+            existingValue: positionQuantities[symbol],
+            suffix: coinName(for: symbol)
+        ) { [weak self] value in
+            self?.positionQuantities[symbol] = value
+            self?.positionInputModes[symbol] = "quantity"
+            self?.savePositionSettings()
+            self?.setupMenu()
+            if symbol == self?.currentSymbol {
+                self?.updatePrice()
+            }
+        }
+    }
+
+    @objc func setPositionLeverage(_ sender: NSMenuItem) {
+        guard let symbol = sender.representedObject as? String else { return }
+        showPositionValueAlert(
+            symbol: symbol,
+            titleKey: "setLeverage",
+            placeholder: "50",
+            existingValue: positionLeverages[symbol],
+            suffix: "x"
+        ) { [weak self] value in
+            self?.positionLeverages[symbol] = value
+            self?.savePositionSettings()
+            self?.setupMenu()
+            if symbol == self?.currentSymbol {
+                self?.updatePrice()
+            }
+        }
+    }
+
+    private func showPositionValueAlert(
+        symbol: String,
+        titleKey: String,
+        placeholder: String,
+        existingValue: Double?,
+        suffix: String,
+        onSave: (Double) -> Void
+    ) {
+        let alert = NSAlert()
+        alert.messageText = localized(titleKey)
+        alert.informativeText = "\(symbol) \(suffix)"
+
+        let input = NSTextField(frame: NSRect(x: 0, y: 0, width: 200, height: 24))
+        input.placeholderString = placeholder
+        if let existingValue = existingValue, existingValue > 0 {
+            input.stringValue = formatPrice(existingValue)
+        }
+        alert.accessoryView = input
+        alert.addButton(withTitle: localized("ok"))
+        alert.addButton(withTitle: localized("cancel"))
+
+        NSApp.activate(ignoringOtherApps: true)
+
+        DispatchQueue.main.async {
+            input.window?.makeFirstResponder(input)
+        }
+
+        let response = alert.runModal()
+
+        if response == .alertFirstButtonReturn {
+            let valueString = input.stringValue.trimmingCharacters(in: .whitespaces)
+            if let value = Double(valueString), value > 0 {
+                onSave(value)
             }
         }
     }
@@ -662,7 +1042,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     @objc func clearBasePrice(_ sender: NSMenuItem) {
         guard let symbol = sender.representedObject as? String else { return }
         basePrices.removeValue(forKey: symbol)
+        positionDirections.removeValue(forKey: symbol)
+        positionInputModes.removeValue(forKey: symbol)
+        positionMargins.removeValue(forKey: symbol)
+        positionQuantities.removeValue(forKey: symbol)
+        positionLeverages.removeValue(forKey: symbol)
         saveBasePrices()
+        savePositionSettings()
         setupMenu()
         if symbol == currentSymbol {
             updatePrice()
@@ -671,6 +1057,18 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     
     private func saveBasePrices() {
         UserDefaults.standard.set(basePrices, forKey: "basePrices")
+    }
+
+    private func savePositionDirections() {
+        UserDefaults.standard.set(positionDirections, forKey: "positionDirections")
+    }
+
+    private func savePositionSettings() {
+        savePositionDirections()
+        UserDefaults.standard.set(positionInputModes, forKey: "positionInputModes")
+        UserDefaults.standard.set(positionMargins, forKey: "positionMargins")
+        UserDefaults.standard.set(positionQuantities, forKey: "positionQuantities")
+        UserDefaults.standard.set(positionLeverages, forKey: "positionLeverages")
     }
 }
 
