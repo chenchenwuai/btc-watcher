@@ -4,6 +4,8 @@
 
 A lightweight macOS menu bar application for real-time cryptocurrency price tracking.
 
+[Live Page](https://chenchenwuai.github.io/btc-watcher/)
+
 ![Screenshot](screenshot.png)
 
 ## Quick Start 🚀

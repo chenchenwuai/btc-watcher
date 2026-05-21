@@ -4,6 +4,8 @@
 
 一个轻量级的 macOS 菜单栏应用，用于实时追踪加密货币价格。
 
+[在线页面](https://chenchenwuai.github.io/btc-watcher/)
+
 ![截图](screenshot.png)
 
 ## 快速开始 🚀
