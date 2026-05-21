@@ -12,12 +12,10 @@ jobs:
   release:
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       
-      - name: Setup Swift
-        uses: swift-actions/setup-swift@v1
-        with:
-          swift-version: '5.9'
+      - name: Show Swift Version
+        run: xcrun swift --version
       
       - name: Build Application
         run: |
@@ -39,7 +37,7 @@ jobs:
           ditto -c -k --keepParent BTCWatcher.app BTCWatcher.app.zip
       
       - name: Create Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v3
         with:
           files: BTCWatcher.app.zip
           generate_release_notes: true
