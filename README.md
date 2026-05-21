@@ -42,6 +42,8 @@ The script will:
 - ➕ Custom coin pair addition
 - 🔄 Real-time price updates (1s, 2s, 5s intervals)
 - 📊 Base price tracking with percentage change display
+- 📈 Long/short position tracking with margin, quantity, leverage, PnL, and ROI
+- 🧩 Configurable menu bar display fields for compact screens
 - 🌐 Spot/Futures trading mode switch
 - 🔌 SOCKS5 proxy support (ClashX compatible)
 - 🌍 English and Chinese language support
@@ -66,6 +68,8 @@ The script will:
 - API Endpoints: Auto or manual selection
 - Proxy Settings: Configure SOCKS5 proxy (default port 7890 for ClashX)
 - Base Price: Set base price for each coin to track percentage change
+- Position Tracking: Choose long/short, set margin or quantity, and set leverage to estimate unrealized PnL and ROI
+- Menu Bar Display: Toggle price, entry change, unrealized PnL, and ROI fields
 - Language: Switch between English and Chinese
 - Custom Pairs: Add your own trading pairs
 
