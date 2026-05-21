@@ -1,118 +1,652 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BTCWatcher - macOS 加密货币价格追踪</title>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-            background: #13c5cf;
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-        }
-        .card {
-            background: white;
-            border-radius: 20px;
-            padding: 40px;
-            max-width: 600px;
-            width: 100%;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-        }
-        .header {
-            text-align: center;
-            margin-bottom: 30px;
-        }
-        .header h1 {
-            font-size: 2.5rem;
-            color: #1a1a2e;
-            margin-bottom: 5px;
-        }
-        .header p {
-            color: #666;
-            font-size: 0.95rem;
-        }
-        .demo {
-            background: #1a1a2e;
-            border-radius: 12px;
-            padding: 20px;
-            text-align: center;
-            margin-bottom: 25px;
-        }
-        .demo-text {
-            color: #fff;
-            font-size: 1.5rem;
-            font-family: 'SF Mono', Monaco, monospace;
-        }
-        .demo-text .change { color: #fff; }
-        .features {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 12px;
-            margin-bottom: 25px;
-        }
-        .feature {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            padding: 12px;
-            background: #f8f9fa;
-            border-radius: 10px;
-            font-size: 0.85rem;
-        }
-        .feature span { font-size: 1.2rem; }
-        .download {
-            display: block;
-            width: 100%;
-            padding: 15px;
-            background: #13c5cf;
-            color: white;
-            text-align: center;
-            border-radius: 12px;
-            text-decoration: none;
-            font-weight: bold;
-            transition: transform 0.2s;
-        }
-        .download:hover { transform: scale(1.02); }
-        .footer {
-            text-align: center;
-            margin-top: 20px;
-            font-size: 0.8rem;
-            color: #999;
-        }
-        .footer a { color: #13c5cf; text-decoration: none; }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BTCWatcher – macOS Cryptocurrency Price Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&family=Orbitron:wght@700;900&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:        #07050f;
+  --surface:   #0d0a1c;
+  --surface2:  #120f24;
+  --surface3:  #1a1530;
+
+  --purple:    #b44fff;
+  --pink:      #ff3fa4;
+  --cyan:      #00e5ff;
+
+  --glow-p:    rgba(180,79,255,0.22);
+  --glow-pk:   rgba(255,63,164,0.18);
+  --glow-c:    rgba(0,229,255,0.14);
+
+  --border:    rgba(180,79,255,0.25);
+  --border2:   rgba(255,63,164,0.35);
+  --border-c:  rgba(0,229,255,0.2);
+
+  --text:      #ede8ff;
+  --text-muted:#7a6fa0;
+  --text-dim:  #3d3560;
+
+  --green:     #0ff4a0;
+  --red:       #ff4466;
+
+  --mono:      'Share Tech Mono', monospace;
+  --title:     'Orbitron', sans-serif;
+  --body:      'Rajdhani', sans-serif;
+}
+
+*{margin:0;padding:0;box-sizing:border-box;}
+
+body {
+  font-family: var(--body);
+  background: var(--bg);
+  min-height: 100vh;
+  min-width: 350px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+  overflow-x: auto;
+  position: relative;
+}
+
+/* Grid bg */
+body::before {
+  content:'';
+  position:fixed;inset:0;
+  background-image:
+    linear-gradient(rgba(180,79,255,0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(180,79,255,0.04) 1px, transparent 1px);
+  background-size:44px 44px;
+  pointer-events:none;
+}
+
+/* Dual ambient glow */
+body::after {
+  content:'';
+  position:fixed;
+  top:-160px; left:-100px;
+  width:600px; height:600px;
+  background: radial-gradient(circle, rgba(180,79,255,0.09) 0%, transparent 65%);
+  pointer-events:none;
+}
+.glow-right {
+  position:fixed;
+  bottom:-140px; right:-80px;
+  width:500px; height:500px;
+  background: radial-gradient(circle, rgba(255,63,164,0.08) 0%, transparent 65%);
+  pointer-events:none;
+  z-index:0;
+}
+
+/* ── CARD ── */
+.card {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 580px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 0;
+  clip-path: polygon(0 0, calc(100% - 20px) 0, 100% 20px, 100% 100%, 20px 100%, 0 calc(100% - 20px));
+}
+
+/* Diagonal corner accent lines */
+.card::before {
+  content:'';
+  position:absolute;
+  top:0; right:0;
+  width:28px; height:28px;
+  border-top: 2px solid var(--pink);
+  border-right: 2px solid var(--pink);
+  pointer-events:none;
+  z-index:2;
+}
+.card::after {
+  content:'';
+  position:absolute;
+  bottom:0; left:0;
+  width:28px; height:28px;
+  border-bottom: 2px solid var(--purple);
+  border-left: 2px solid var(--purple);
+  pointer-events:none;
+  z-index:2;
+}
+
+/* ── TOPBAR ── */
+.topbar {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding: 9px 28px;
+  background: rgba(0,0,0,0.45);
+  border-bottom: 1px solid var(--border);
+}
+.topbar-left {
+  display:flex;
+  align-items:center;
+  gap:8px;
+  font-family: var(--mono);
+  font-size:14px;
+  line-height:1;
+  color: #8878b8;
+  letter-spacing:.1em;
+}
+.live-dot {
+  width:6px;height:6px;
+  border-radius:50%;
+  background: var(--green);
+  box-shadow: 0 0 6px var(--green);
+  animation: blink 2s ease-in-out infinite;
+}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
+
+.topbar-right {
+  display:flex;
+  align-items:center;
+  gap:6px;
+}
+.lang-btn {
+  font-family:var(--mono);
+  font-size:14px;
+  line-height:1;
+  color:#8878b8;
+  background:none;border:none;
+  cursor:pointer;
+  letter-spacing:.1em;
+  padding:3px 6px;
+  transition:color .15s;
+}
+.lang-btn.active { color:var(--purple); }
+.lang-btn:hover  { color:var(--pink); }
+.lang-sep { color:#8878b8; font-size:14px; line-height:1; }
+
+/* ── INNER ── */
+.inner { padding: 28px 28px 26px; }
+
+/* ── HEADER ── */
+.eyebrow {
+  font-family: var(--mono);
+  font-size:14px;
+  line-height:1;
+  letter-spacing: .18em;
+  color: #8878b8;
+  margin-bottom: 10px;
+}
+.eyebrow em {
+  color: var(--purple);
+  font-style:normal;
+}
+
+.title-row {
+  display:flex;
+  align-items:flex-end;
+  gap:12px;
+  margin-bottom:24px;
+}
+h1 {
+  font-family: var(--title);
+  font-size: 2.6rem;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing:.04em;
+  background: linear-gradient(110deg, var(--purple) 0%, var(--pink) 55%, #ff8c69 100%);
+  -webkit-background-clip:text;
+  -webkit-text-fill-color:transparent;
+  background-clip:text;
+}
+.badge {
+  display:inline-block;
+  font-family:var(--mono);
+  font-size:14px;
+  line-height:1;
+  color:var(--cyan);
+  border:1px solid var(--border-c);
+  background: rgba(0,229,255,0.06);
+  padding:4px 8px;
+  letter-spacing:.1em;
+  margin-bottom:4px;
+}
+
+/* ── DEMO ── */
+.demo {
+  border: 1px solid var(--border2);
+  margin-bottom: 22px;
+  position:relative;
+  background: var(--surface2);
+  overflow:hidden;
+  border-radius: 8px;
+  box-shadow: 0 0 24px rgba(180,79,255,0.12), 0 0 48px rgba(255,63,164,0.08);
+}
+
+/* scanlines */
+.demo::after {
+  content:'';
+  position:absolute;inset:0;
+  background: repeating-linear-gradient(
+    0deg, transparent, transparent 3px,
+    rgba(180,79,255,0.025) 3px, rgba(180,79,255,0.025) 4px
+  );
+  pointer-events:none;
+  z-index:1;
+}
+
+
+
+.fake-desktop {
+  height:120px;
+  background:
+    radial-gradient(ellipse at 20% 50%, rgba(180,79,255,0.18) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 30%, rgba(255,63,164,0.15) 0%, transparent 45%),
+    radial-gradient(ellipse at 50% 100%, rgba(0,229,255,0.07) 0%, transparent 55%),
+    linear-gradient(160deg, #130d28 0%, #0e0820 100%);
+  position:relative;
+  border-radius:0 0 8px 8px;
+}
+
+/* macOS-style menu bar */
+.menu-bar {
+  position:absolute;
+  top:0;left:0;right:0;
+  height:27px;
+  background:rgba(7,5,20,0.88);
+  border-bottom:1px solid rgba(180,79,255,0.15);
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:0 14px;
+  backdrop-filter:blur(16px);
+  z-index:2;
+}
+.mb-left {
+  display:flex;gap:12px;align-items:center;
+}
+.mb-apple { font-size:14px;color:var(--text); }
+.mb-item  {
+  font-family:var(--body);
+  font-size:14px;
+  font-weight:500;
+  color:rgba(237,232,255,.4);
+  letter-spacing:.03em;
+}
+.mb-right {
+  display:flex;align-items:center;gap:12px;
+}
+.ticker-wrap {
+  display:flex;align-items:center;gap:5px;
+  font-family:-apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;font-size:15px;
+}
+.t-price  { color:#ffffff; font-size:15px; font-family:-apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif; }
+.t-up     { color:#ffffff; font-size:13px; font-family:-apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif; }
+.t-dn     { color:#ffffff; font-size:13px; font-family:-apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif; }
+.mb-clock {
+  font-family:var(--mono);
+  font-size:14px;
+  color:rgba(237,232,255,.4);
+}
+
+/* Floating window */
+.fake-win {
+  position:absolute;
+  left:50%;bottom:14px;
+  transform:translateX(-50%);
+  width:62%;
+  background:rgba(18,15,36,0.95);
+  border:1px solid rgba(180,79,255,0.35);
+  border-radius:5px;
+  overflow:hidden;
+  box-shadow:
+    0 0 0 1px rgba(255,63,164,0.1),
+    0 8px 32px rgba(0,0,0,0.7),
+    0 0 30px rgba(180,79,255,0.18);
+}
+.fake-win-bar {
+  height:20px;
+  background:rgba(0,0,0,0.5);
+  border-bottom:1px solid rgba(180,79,255,0.1);
+  display:flex;align-items:center;padding:0 8px;gap:5px;
+}
+.fake-win-bar span {
+  width:6px;height:6px;border-radius:50%;
+}
+.fake-win-bar span:nth-child(1){background:rgba(255,95,87,.6);}
+.fake-win-bar span:nth-child(2){background:rgba(254,188,46,.6);}
+.fake-win-bar span:nth-child(3){background:rgba(40,200,64,.6);}
+.fake-line {
+  height:4px;
+  margin:8px 12px 5px;
+  border-radius:1px;
+  background:rgba(180,79,255,0.12);
+}
+.fake-line:nth-child(2){width:70%;}
+.fake-line:nth-child(3){width:50%;}
+.fake-line:nth-child(4){width:60%;}
+
+/* ── DIVIDER ── */
+.divider {
+  height:1px;
+  background: linear-gradient(90deg, transparent, var(--border2) 40%, var(--border) 100%);
+  margin-bottom:20px;
+}
+
+/* ── FEATURES ── */
+.features {
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:8px;
+  margin-bottom:22px;
+}
+.feature {
+  position:relative;
+  padding:14px 16px;
+  min-height:68px;
+  border:1px solid var(--border);
+  background: linear-gradient(135deg, rgba(180,79,255,0.04) 0%, rgba(255,63,164,0.02) 100%);
+  overflow:hidden;
+  transition:border-color .2s, background .2s;
+}
+.feature::before {
+  content:'';
+  position:absolute;
+  top:0;left:0;
+  width:2px;height:100%;
+  background: linear-gradient(180deg, var(--purple), var(--pink));
+  opacity:.6;
+}
+.feature:hover {
+  border-color: rgba(180,79,255,0.5);
+  background: linear-gradient(135deg, rgba(180,79,255,0.09) 0%, rgba(255,63,164,0.05) 100%);
+}
+.f-tag {
+  font-family:var(--mono);
+  font-size:11px;
+  line-height:1;
+  letter-spacing:.14em;
+  color:var(--pink);
+  margin-bottom:6px;
+}
+.f-label {
+  font-family:var(--body);
+  font-size:14px;
+  font-weight:600;
+  color:var(--text);
+  line-height:18px;
+  letter-spacing:.02em;
+}
+
+/* ── CTA ── */
+.cta-row {
+  display:grid;
+  grid-template-columns:1fr auto;
+  gap:8px;
+  margin-bottom:22px;
+}
+.btn-dl {
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:10px;
+  padding:15px 24px;
+  background: linear-gradient(110deg, var(--purple) 0%, var(--pink) 100%);
+  color:#fff;
+  font-family:var(--body);
+  font-size:15px;
+  line-height:1;
+  font-weight:700;
+  letter-spacing:.08em;
+  text-decoration:none;
+  border:none;cursor:pointer;
+  clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
+  transition: filter .15s, transform .1s;
+  position:relative;
+}
+.btn-dl::after {
+  content:'';
+  position:absolute;
+  inset:-1px;
+  background: linear-gradient(90deg, var(--purple), var(--pink), var(--purple));
+  background-size: 300% 100%;
+  clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
+  z-index:-1;
+  animation: border-flow 8s linear infinite;
+  filter: blur(4px);
+  opacity: 0.9;
+}
+@keyframes border-flow {
+  0%   { background-position: 0% 0%; }
+  100% { background-position: 300% 0%; }
+}
+.btn-dl:hover { filter:brightness(1.2); transform:translateY(-1px); }
+.btn-dl:active{ transform:translateY(0); }
+
+.btn-gh {
+  display:flex;align-items:center;justify-content:center;
+  padding:15px 16px;
+  background:transparent;
+  border:1px solid var(--border);
+  color:var(--text-muted);
+  font-family:var(--mono);
+  font-size:14px;
+  line-height:1;
+  text-decoration:none;
+  gap:7px;
+  transition:border-color .2s,color .2s;
+  clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%);
+}
+.btn-gh:hover { border-color:var(--border2); color:var(--text); }
+
+/* ── FOOTER ── */
+.footer {
+  border-top:1px solid var(--border);
+  padding-top:16px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+}
+.footer-l {
+  font-family:var(--mono);
+  font-size:13px;
+  line-height:1;
+  color:var(--text-dim);
+  letter-spacing:.1em;
+}
+.footer-l em { color:var(--purple); font-style:normal; }
+.footer-r {
+  font-family:var(--mono);
+  font-size:13px;
+  line-height:1;
+  color:var(--text-dim);
+}
+
+@media(max-width:480px){
+  h1{font-size:1.7rem;}
+  .features{grid-template-columns:1fr;}
+  .cta-row{grid-template-columns:1fr;}
+  .btn-gh{display:none;}
+  .inner{padding:18px 16px 18px;}
+  .topbar{padding:8px 16px;}
+  .topbar-left{font-size:14px;letter-spacing:.06em;}
+  .eyebrow{font-size:14px;letter-spacing:.1em;min-height:28px;}
+  .badge{font-size:14px;padding:3px 6px;}
+  .mb-left .mb-item{display:none;}
+  .mb-clock{font-size:14px;}
+  .ticker-wrap{font-size:14px;}
+  .t-price{font-size:14px;}
+  .t-up,.t-dn{font-size:14px;}
+  .footer{flex-direction:column;gap:6px;align-items:flex-start;}
+  .footer-l,.footer-r{font-size:14px;}
+  .lang-btn,.lang-sep{font-size:14px;}
+}
+</style>
 </head>
 <body>
-    <div class="card">
-        <div class="header">
-            <h1>BTCWatcher</h1>
-            <p>macOS 菜单栏加密货币价格追踪 · v1.4.2</p>
-        </div>
-        
-        <div class="demo">
-            <div class="demo-text">₿ 65000.00 <span class="change">(+5.25%)</span></div>
-        </div>
-        
-        <div class="features">
-            <div class="feature"><span>📊</span> 基准价与涨跌幅</div>
-            <div class="feature"><span>🌐</span> 现货/合约切换</div>
-            <div class="feature"><span>🔌</span> SOCKS5 代理</div>
-            <div class="feature"><span>💰</span> 多币种支持</div>
-            <div class="feature"><span>🌍</span> 中英文双语</div>
-            <div class="feature"><span>🚀</span> 零依赖轻量</div>
-        </div>
-        
-        <a href="https://github.com/chenchenwuai/btc-watcher/releases/latest" class="download">免费下载</a>
-        
-        <div class="footer">
-            <p>数据来自 Binance API</p>
-            <a href="https://github.com/chenchenwuai/btc-watcher">GitHub</a> · MIT 协议
-        </div>
+<div class="glow-right"></div>
+
+<div class="card">
+  <div class="topbar">
+    <div class="topbar-left">
+      <span class="live-dot"></span>
+      <span data-i18n="live">LIVE · BTCUSDT</span>
     </div>
+    <div class="topbar-right">
+      <button class="lang-btn active" data-lang="en">EN</button>
+      <span class="lang-sep">/</span>
+      <button class="lang-btn" data-lang="zh">中文</button>
+    </div>
+  </div>
+
+  <div class="inner">
+    <div class="eyebrow"><em>►</em> <span data-i18n="eyebrow">CRYPTO PRICE TRACKER · MACOS MENUBAR</span></div>
+    <div class="title-row">
+      <h1>BTC&nbsp;Watcher</h1>
+      <div class="badge" data-i18n="ver">v1.4.2</div>
+    </div>
+
+    <!-- DEMO -->
+    <div class="demo">
+      <div class="fake-desktop">
+        <div class="menu-bar">
+          <div class="mb-left">
+            <span class="mb-apple">&#xF8FF;</span>
+            <span class="mb-item">Finder</span>
+            <span class="mb-item">File</span>
+            <span class="mb-item">Edit</span>
+          </div>
+          <div class="mb-right">
+            <div class="ticker-wrap">
+              <span class="t-price" id="btc-price">₿ 65,000.00</span>
+              <span class="t-up" id="btc-change">(+5.25%)</span>
+            </div>
+            <span class="mb-clock" id="menu-clock">09:41</span>
+          </div>
+        </div>
+        <div class="fake-win">
+          <div class="fake-win-bar"><span></span><span></span><span></span></div>
+          <div class="fake-line"></div>
+          <div class="fake-line"></div>
+          <div class="fake-line"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- FEATURES -->
+    <div class="features">
+      <div class="feature">
+        <div class="f-tag" data-i18n="f1tag">REALTIME</div>
+        <div class="f-label" data-i18n="f1">Real-time Binance prices</div>
+      </div>
+      <div class="feature">
+        <div class="f-tag" data-i18n="f3tag">ANALYTICS</div>
+        <div class="f-label" data-i18n="f3">Entry price, PnL &amp; ROI</div>
+      </div>
+    </div>
+
+    <!-- CTA -->
+    <div class="cta-row">
+      <a href="https://github.com/chenchenwuai/btc-watcher/releases/latest" class="btn-dl">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v13M5 14l7 7 7-7"/><path d="M3 21h18"/></svg>
+        <span data-i18n="download">FREE DOWNLOAD</span>
+      </a>
+      <a href="https://github.com/chenchenwuai/btc-watcher" class="btn-gh">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/></svg>
+        GitHub
+      </a>
+    </div>
+
+    <!-- FOOTER -->
+    <div class="footer">
+      <div class="footer-l"><em>◈</em> <span data-i18n="footer">DATA · BINANCE API · MIT LICENSE</span></div>
+      <div class="footer-r">© 2024 BTCWATCHER</div>
+    </div>
+  </div>
+</div>
+
+<script>
+const T = {
+  en:{
+    title:"BTCWatcher – macOS Cryptocurrency Price Tracker",
+    live:"LIVE · BTCUSDT",
+    eyebrow:"CRYPTO PRICE TRACKER · MACOS MENUBAR",
+    ver:"v1.4.2",
+    demoTitle:"// MENUBAR_PREVIEW.app",
+    f1tag:"REALTIME", f1:"Real-time Binance prices",
+    f2tag:"DISPLAY",  f2:"Menu bar price display",
+    f3tag:"ANALYTICS",f3:"Entry price, PnL & ROI",
+    f4tag:"NETWORK",  f4:"Proxy & API failover",
+    download:"FREE DOWNLOAD",
+    footer:"DATA · BINANCE API · MIT LICENSE"
+  },
+  zh:{
+    title:"BTCWatcher – macOS 加密货币价格追踪",
+    live:"实时 · BTCUSDT",
+    eyebrow:"加密货币价格追踪 · MACOS 菜单栏",
+    ver:"v1.4.2",
+    demoTitle:"// 菜单栏预览.app",
+    f1tag:"实时行情", f1:"币安实时价格",
+    f2tag:"菜单显示", f2:"菜单栏价格展示",
+    f3tag:"收益分析", f3:"开仓价、盈亏与 ROI",
+    f4tag:"网络",     f4:"代理与 API 故障切换",
+    download:"免费下载",
+    footer:"数据 · 币安 API · MIT 协议"
+  }
+};
+
+let lang="en";
+
+function applyLang(l){
+  lang=l;
+  const t=T[l]||T.en;
+  document.title=t.title;
+  document.querySelectorAll("[data-i18n]").forEach(el=>{
+    const k=el.dataset.i18n;
+    if(t[k]!=null) el.textContent=t[k];
+  });
+  document.querySelectorAll("[data-lang]").forEach(b=>b.classList.toggle("active",b.dataset.lang===l));
+}
+
+function fmt(v){
+  const p=Number(v);
+  if(!isFinite(p))return"65,000.00";
+  if(p<0.01)return p.toFixed(8);
+  if(p<1)return p.toFixed(6);
+  if(p<100)return p.toFixed(4);
+  return p.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});
+}
+
+function renderTicker(d){
+  const price=fmt(d.lastPrice);
+  const chg=Number(d.priceChangePercent);
+  const sign=chg>=0?"+":"";
+  document.getElementById("btc-price").textContent=`₿ ${price}`;
+  const cel=document.getElementById("btc-change");
+  cel.textContent=`(${sign}${chg.toFixed(2)}%)`;
+  cel.className=chg>=0?"t-up":"t-dn";
+}
+
+function updateClock(){
+  document.getElementById("menu-clock").textContent=
+    new Date().toLocaleTimeString("en-US",{hour:"2-digit",minute:"2-digit",hour12:false});
+}
+
+async function fetchTicker(){
+  try{
+    const r=await fetch("https://api.binance.com/api/v3/ticker/24hr?symbol=BTCUSDT",{signal:AbortSignal.timeout(6000)});
+    if(r.ok)renderTicker(await r.json());
+  }catch(_){renderTicker({lastPrice:"65000",priceChangePercent:"5.25"});}
+}
+
+document.querySelectorAll("[data-lang]").forEach(b=>b.addEventListener("click",()=>applyLang(b.dataset.lang)));
+renderTicker({lastPrice:"65000",priceChangePercent:"5.25"});
+applyLang("en");
+updateClock();
+setInterval(updateClock,1000);
+fetchTicker();
+setInterval(fetchTicker,5000);
+</script>
 </body>
 </html>
