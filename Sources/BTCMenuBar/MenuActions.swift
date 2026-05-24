@@ -153,17 +153,19 @@ extension AppDelegate {
 
     @objc func deleteCoin(_ sender: NSMenuItem) {
         guard let symbol = sender.representedObject as? String else { return }
+        let isDeletingCurrentSymbol = symbol == currentSymbol
 
-        if symbol == currentSymbol {
+        if isDeletingCurrentSymbol {
             currentSymbol = "BTCUSDT"
             currentIcon = "₿"
+            UserDefaults.standard.set(currentSymbol, forKey: "lastSymbol")
         }
 
         symbols.removeAll(where: { $0.1 == symbol })
         saveCustomSymbols()
         setupMenu()
 
-        if symbol == currentSymbol {
+        if isDeletingCurrentSymbol {
             updatePrice()
         }
     }
@@ -206,6 +208,7 @@ extension AppDelegate {
         isFuturesMode = false
         UserDefaults.standard.set(isFuturesMode, forKey: "isFuturesMode")
         currentApiIndex = 0
+        UserDefaults.standard.set(currentApiIndex, forKey: "currentApiIndex")
         setupMenu()
         updatePrice()
     }
@@ -214,6 +217,7 @@ extension AppDelegate {
         isFuturesMode = true
         UserDefaults.standard.set(isFuturesMode, forKey: "isFuturesMode")
         currentApiIndex = 0
+        UserDefaults.standard.set(currentApiIndex, forKey: "currentApiIndex")
         setupMenu()
         updatePrice()
     }

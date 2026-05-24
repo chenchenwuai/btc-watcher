@@ -6,17 +6,19 @@ extension AppDelegate {
     }
 
     func configureUrlSession() {
+        let config = URLSessionConfiguration.default
+        config.timeoutIntervalForRequest = 8
+        config.timeoutIntervalForResource = 12
+
         if isProxyEnabled && !proxyHost.isEmpty {
-            let config = URLSessionConfiguration.default
             config.connectionProxyDictionary = [
                 kCFNetworkProxiesSOCKSProxy: proxyHost,
                 kCFNetworkProxiesSOCKSPort: Int(proxyPort) ?? 1080,
                 kCFNetworkProxiesSOCKSEnable: 1
             ]
-            urlSession = URLSession(configuration: config)
-        } else {
-            urlSession = URLSession.shared
         }
+
+        urlSession = URLSession(configuration: config)
     }
 
     func startTimer(interval: TimeInterval = 2.0, fireImmediately: Bool = true) {
@@ -31,6 +33,7 @@ extension AppDelegate {
 
     func switchToNextApi() {
         currentApiIndex = (currentApiIndex + 1) % apiEndpoints.count
+        UserDefaults.standard.set(currentApiIndex, forKey: "currentApiIndex")
         print("Switching to API \(currentApiIndex + 1)")
     }
 
@@ -47,41 +50,92 @@ extension AppDelegate {
                 return
             }
 
-            if let data = data,
-               let json = try? JSONSerialization.jsonObject(with: data, options: []) as? [String: Any],
-               let priceString = json["price"] as? String,
-               let priceValue = Double(priceString) {
-                DispatchQueue.main.async {
-                    self.failedAttempts = 0
-                    self.latestPrices[symbol] = priceValue
-                    guard symbol == self.currentSymbol else { return }
-                    self.updateStatusTitle(symbol: symbol, priceValue: priceValue)
-                }
+            guard let httpResponse = response as? HTTPURLResponse,
+                  (200..<300).contains(httpResponse.statusCode),
+                  let data = data,
+                  let priceValue = self.parsePrice(from: data)
+            else {
+                self.handleApiError()
+                return
+            }
+
+            DispatchQueue.main.async {
+                self.failedAttempts = 0
+                self.latestPrices[symbol] = priceValue
+                guard symbol == self.currentSymbol else { return }
+                self.updateStatusTitle(symbol: symbol, priceValue: priceValue)
             }
         }.resume()
+    }
+
+    func parsePrice(from data: Data) -> Double? {
+        guard let json = try? JSONSerialization.jsonObject(with: data, options: []) as? [String: Any],
+              let priceString = json["price"] as? String,
+              let priceValue = Double(priceString)
+        else {
+            return nil
+        }
+
+        return priceValue
+    }
+
+    func fetchPrice(symbol: String, completion: @escaping (Double?) -> Void) {
+        guard let url = URL(string: "\(getCurrentApiEndpoint())?symbol=\(symbol)") else {
+            completion(nil)
+            return
+        }
+
+        urlSession.dataTask(with: url) { [weak self] data, response, error in
+            guard let self else {
+                completion(nil)
+                return
+            }
+
+            guard error == nil,
+                  let httpResponse = response as? HTTPURLResponse,
+                  (200..<300).contains(httpResponse.statusCode),
+                  let data = data,
+                  let priceValue = self.parsePrice(from: data)
+            else {
+                completion(nil)
+                return
+            }
+
+            completion(priceValue)
+        }.resume()
+    }
+
+    func updateSelectedSymbol(_ symbol: String) {
+        currentSymbol = symbol
+        if let (_, _, icon) = symbols.first(where: { $0.1 == symbol }) {
+            currentIcon = icon
+        }
+        UserDefaults.standard.set(symbol, forKey: "lastSymbol")
+        setupMenu()
+        updatePrice()
+    }
+
+    func addValidatedCoin(_ symbol: String) {
+        let name = symbol.replacingOccurrences(of: "USDT", with: "")
+        symbols.append((name, symbol, name))
+        currentSymbol = symbol
+        currentIcon = name
+        saveCustomSymbols()
+        UserDefaults.standard.set(symbol, forKey: "lastSymbol")
+        setupMenu()
+        updatePrice()
     }
 
     func validateAndAddCoin(_ symbol: String) {
         if symbols.contains(where: { $0.1 == symbol }) {
             DispatchQueue.main.async {
-                self.currentSymbol = symbol
-                if let (_, _, icon) = self.symbols.first(where: { $0.1 == symbol }) {
-                    self.currentIcon = icon
-                }
-                self.setupMenu()
-                self.updatePrice()
+                self.updateSelectedSymbol(symbol)
             }
             return
         }
 
-        guard let url = URL(string: "\(getCurrentApiEndpoint())?symbol=\(symbol)") else { return }
-
-        urlSession.dataTask(with: url) { [weak self] data, response, error in
-            guard let self,
-                  let data = data,
-                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                  let _ = json["price"] as? String
-            else {
+        fetchPrice(symbol: symbol) { [weak self] price in
+            guard let self, let price else {
                 DispatchQueue.main.async {
                     self?.showError("invalidCoin")
                 }
@@ -89,24 +143,20 @@ extension AppDelegate {
             }
 
             DispatchQueue.main.async {
-                let name = symbol.replacingOccurrences(of: "USDT", with: "")
-                self.symbols.append((name, symbol, name))
-                self.currentSymbol = symbol
-                self.currentIcon = name
-                self.saveCustomSymbols()
-                UserDefaults.standard.set(symbol, forKey: "lastSymbol")
-                self.setupMenu()
-                self.updatePrice()
+                self.latestPrices[symbol] = price
+                self.addValidatedCoin(symbol)
             }
-        }.resume()
+        }
     }
 
     func handleApiError() {
-        failedAttempts += 1
+        DispatchQueue.main.async {
+            self.failedAttempts += 1
 
-        if isAutoSwitchApi && failedAttempts >= 3 {
-            switchToNextApi()
-            failedAttempts = 0
+            if self.isAutoSwitchApi && self.failedAttempts >= 3 {
+                self.switchToNextApi()
+                self.failedAttempts = 0
+            }
         }
     }
 }

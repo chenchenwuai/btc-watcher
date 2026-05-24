@@ -11,7 +11,7 @@
 ## 快速开始 🚀
 
 ### 方式一：下载发布版
-1. 访问 [Releases](https://github.com/chenwuai/BTCWatcher/releases) 页面
+1. 访问 [Releases](https://github.com/chenchenwuai/btc-watcher/releases) 页面
 2. 下载最新的 `BTCWatcher.app.zip`
 3. 解压应用
 4. 右键点击应用，选择"打开"（首次启动时很重要）
@@ -26,8 +26,8 @@
 ### 方式二：从源码编译
 如果你想自己编译：
 ```bash
-git clone https://github.com/chenwuai/BTCWatcher.git
-cd BTCWatcher
+git clone https://github.com/chenchenwuai/btc-watcher.git
+cd btc-watcher
 ./build.sh
 ```
 
