@@ -12,6 +12,8 @@ extension AppDelegate {
         }
 
         showMenuBarPrice = UserDefaults.standard.object(forKey: "showMenuBarPrice") as? Bool ?? true
+        priceTrendPeriod = UserDefaults.standard.string(forKey: "priceTrendPeriod").flatMap(PriceTrendPeriod.init(rawValue:))
+            ?? (UserDefaults.standard.bool(forKey: "showMenuBarTrend") ? .live : .off)
         showMenuBarChange = UserDefaults.standard.object(forKey: "showMenuBarChange") as? Bool ?? true
         showMenuBarPnl = UserDefaults.standard.object(forKey: "showMenuBarPnl") as? Bool ?? true
         showMenuBarRoi = UserDefaults.standard.object(forKey: "showMenuBarRoi") as? Bool ?? true
@@ -90,6 +92,7 @@ extension AppDelegate {
 
     func saveMenuBarDisplaySettings() {
         UserDefaults.standard.set(showMenuBarPrice, forKey: "showMenuBarPrice")
+        UserDefaults.standard.set(priceTrendPeriod.rawValue, forKey: "priceTrendPeriod")
         UserDefaults.standard.set(showMenuBarChange, forKey: "showMenuBarChange")
         UserDefaults.standard.set(showMenuBarPnl, forKey: "showMenuBarPnl")
         UserDefaults.standard.set(showMenuBarRoi, forKey: "showMenuBarRoi")

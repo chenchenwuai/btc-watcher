@@ -86,6 +86,22 @@ extension AppDelegate {
         let showPriceItem = NSMenuItem(title: localized("showPrice"), action: #selector(toggleMenuBarPrice), keyEquivalent: "")
         showPriceItem.state = showMenuBarPrice ? .on : .off
         displaySubmenu.addItem(showPriceItem)
+        let trendItem = NSMenuItem(title: localized("showPriceTrend"), action: nil, keyEquivalent: "")
+        let trendSubmenu = NSMenu()
+        for period in PriceTrendPeriod.allCases {
+            let title: String
+            switch period {
+            case .off: title = localized("priceTrendOff")
+            case .live: title = localized("priceTrendLive")
+            case .fifteenMinutes, .oneHour, .fourHours: title = period.rawValue
+            }
+            let periodItem = NSMenuItem(title: title, action: #selector(selectPriceTrendPeriod(_:)), keyEquivalent: "")
+            periodItem.representedObject = period
+            periodItem.state = priceTrendPeriod == period ? .on : .off
+            trendSubmenu.addItem(periodItem)
+        }
+        trendItem.submenu = trendSubmenu
+        displaySubmenu.addItem(trendItem)
         let showChangeItem = NSMenuItem(title: localized("showChange"), action: #selector(toggleMenuBarChange), keyEquivalent: "")
         showChangeItem.state = showMenuBarChange ? .on : .off
         displaySubmenu.addItem(showChangeItem)

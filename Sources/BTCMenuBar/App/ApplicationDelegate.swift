@@ -22,6 +22,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var positionQuantities: [String: Double] = [:]
     var positionLeverages: [String: Double] = [:]
     var latestPrices: [String: Double] = [:]
+    var priceTrendHistory = PriceTrendHistory()
+    var historicalPriceTrend: HistoricalPriceTrend?
     var priceRequest: (id: UUID, task: URLSessionDataTask)?
     var isBinanceRequestInProgress = false
     var isBinancePositionSyncEnabled = false
@@ -32,6 +34,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var useAllSpotPrices = false
     var watchlistRefreshFailed = false
     var showMenuBarPrice: Bool = true
+    var priceTrendPeriod: PriceTrendPeriod = .off
     var showMenuBarChange: Bool = true
     var showMenuBarPnl: Bool = true
     var showMenuBarRoi: Bool = true
@@ -52,7 +55,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
 
         if let button = statusItem.button {
-            button.image = nil
+            button.imagePosition = .imageRight
             button.title = showMenuBarPrice ? "\(currentIcon) \(localized("loading"))" : currentIcon
         }
 

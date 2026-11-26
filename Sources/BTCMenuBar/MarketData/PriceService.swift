@@ -3,6 +3,7 @@ import Cocoa
 extension AppDelegate {
     func configureUrlSession() {
         cancelPriceUpdate()
+        cancelHistoricalTrendRequest()
         urlSession.invalidateAndCancel()
         urlSession = URLSession(configuration: configureNetwork(.default))
         failedAttempts = 0
@@ -43,6 +44,7 @@ extension AppDelegate {
     }
 
     func updatePrice() {
+        refreshHistoricalTrendIfNeeded()
         guard priceRequest == nil, var components = URLComponents(string: apiEndpoints[currentApiIndex]) else { return }
 
         let watchedSymbols = Set(symbols.map { $0.1 })
@@ -53,7 +55,9 @@ extension AppDelegate {
         guard let url = components.url else { return }
 
         let requestID = UUID()
+        let requestedAt = Date().timeIntervalSince1970
         let task = urlSession.dataTask(with: url) { [weak self] data, response, error in
+            let receivedAt = Date().timeIntervalSince1970
             let status = (response as? HTTPURLResponse)?.statusCode
             let tickers = status.map { (200..<300).contains($0) } == true && error == nil
                 ? data.flatMap { try? JSONDecoder().decode([PriceTicker].self, from: $0) }
@@ -79,6 +83,12 @@ extension AppDelegate {
                         prices[ticker.symbol] = ticker.value
                     }
                     self.latestPrices = prices
+                    if self.priceTrendPeriod != .off {
+                        self.priceTrendHistory.record(prices, isFutures: self.isFuturesMode)
+                    }
+                    if let price = prices[self.currentSymbol], self.historicalPriceTrend?.selection == self.historicalTrendSelection {
+                        self.historicalPriceTrend?.applyQuote(price, requestedAt: requestedAt, receivedAt: receivedAt)
+                    }
                     self.watchlistRefreshFailed = false
                     self.failedAttempts = 0
                 } else {
@@ -146,6 +156,7 @@ extension AppDelegate {
     private func handleApiError() {
         failedAttempts += 1
         if isAutoSwitchApi && failedAttempts >= 3 {
+            cancelHistoricalTrendRequest()
             currentApiIndex = (currentApiIndex + 1) % apiEndpoints.count
             UserDefaults.standard.set(currentApiIndex, forKey: "currentApiIndex")
             print("Switching to API \(currentApiIndex + 1)")

@@ -30,13 +30,20 @@ extension AppDelegate {
         }
         let titlePrefix = titleParts.joined(separator: " ")
         var displayTitle = details.isEmpty ? titlePrefix : "\(titlePrefix) (\(details.joined(separator: ", ")))"
-        if priceValue != nil && watchlistRefreshFailed && (showMenuBarPrice || (!usesBinancePositions && !details.isEmpty)) {
+        let trendImage = priceTrendImage(for: symbol, hasLatestPrice: priceValue != nil)
+        let staleQuote = priceValue != nil && watchlistRefreshFailed &&
+            (showMenuBarPrice || trendImage != nil || (!usesBinancePositions && !details.isEmpty))
+        let staleTrend = trendImage != nil && priceTrendPeriod.klineInterval != nil &&
+            historicalPriceTrend?.refreshFailed == true
+        if staleQuote || staleTrend {
             displayTitle += " · \(localized("staleQuote"))"
         }
         if stalePosition {
             displayTitle += " · \(localized("binanceStalePositions"))"
         }
         statusItem.button?.title = displayTitle
+        statusItem.button?.image = trendImage
+        statusItem.button?.toolTip = trendImage?.accessibilityDescription
     }
 
     func showError(_ message: String) {
@@ -109,6 +116,21 @@ extension AppDelegate {
         setupMenu()
     }
 
+    @objc func selectPriceTrendPeriod(_ sender: NSMenuItem) {
+        guard let period = sender.representedObject as? PriceTrendPeriod, priceTrendPeriod != period else { return }
+        priceTrendPeriod = period
+        if period == .off {
+            priceTrendHistory = PriceTrendHistory()
+        }
+        saveMenuBarDisplaySettings()
+        refreshHistoricalTrendIfNeeded()
+        refreshStatusTitleFromCache()
+        setupMenu()
+        if period == .live {
+            updatePrice()
+        }
+    }
+
     @objc func toggleMenuBarChange() {
         showMenuBarChange.toggle()
         saveMenuBarDisplaySettings()
@@ -137,6 +159,7 @@ extension AppDelegate {
     @objc func switchApi(_ sender: NSMenuItem) {
         guard let index = sender.representedObject as? Int else { return }
         cancelPriceUpdate()
+        cancelHistoricalTrendRequest()
         currentApiIndex = index
         failedAttempts = 0
         isAutoSwitchApi = false
@@ -166,6 +189,7 @@ extension AppDelegate {
 
         symbols.removeAll(where: { $0.1 == symbol })
         latestPrices.removeValue(forKey: symbol)
+        priceTrendHistory.remove(symbol: symbol)
         cancelPriceUpdate()
         useAllSpotPrices = false
         saveCustomSymbols()
