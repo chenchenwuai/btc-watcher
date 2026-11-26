@@ -23,6 +23,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var positionLeverages: [String: Double] = [:]
     var latestPrices: [String: Double] = [:]
     var priceRequest: (id: UUID, task: URLSessionDataTask)?
+    var isBinanceRequestInProgress = false
+    var isBinancePositionSyncEnabled = false
+    var binancePositionSyncTask: Task<Void, Never>?
+    var binancePositions: [BinanceFuturesPosition] = []
+    var binancePositionSyncError: Error?
+    var hasSyncedBinancePositions = false
     var useAllSpotPrices = false
     var watchlistRefreshFailed = false
     var showMenuBarPrice: Bool = true
@@ -52,5 +58,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         setupMenu()
         startTimer()
+        if usesBinancePositions { restartBinancePositionSync() }
     }
 }

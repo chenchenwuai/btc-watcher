@@ -2,7 +2,14 @@ import Cocoa
 
 extension AppDelegate {
     func configureUrlSession() {
-        let config = URLSessionConfiguration.default
+        cancelPriceUpdate()
+        urlSession.invalidateAndCancel()
+        urlSession = URLSession(configuration: configureNetwork(.default))
+        failedAttempts = 0
+        if statusItem != nil && usesBinancePositions { restartBinancePositionSync() }
+    }
+
+    func configureNetwork(_ config: URLSessionConfiguration) -> URLSessionConfiguration {
         config.timeoutIntervalForRequest = 8
         config.timeoutIntervalForResource = 12
 
@@ -14,10 +21,7 @@ extension AppDelegate {
             ]
         }
 
-        cancelPriceUpdate()
-        urlSession.invalidateAndCancel()
-        urlSession = URLSession(configuration: config)
-        failedAttempts = 0
+        return config
     }
 
     func startTimer(interval: TimeInterval = 2.0, fireImmediately: Bool = true) {

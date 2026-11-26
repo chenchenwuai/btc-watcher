@@ -1,32 +1,40 @@
 import Cocoa
 
 extension AppDelegate {
-    func updateStatusTitle(symbol: String, priceValue: Double) {
-        let basePrice = basePrices[symbol]
-        let direction = positionDirections[symbol] ?? "long"
-        let changeStr = calculateChangePercent(current: priceValue, base: basePrice, direction: direction)
+    func updateStatusTitle(symbol: String, priceValue: Double?) {
         var details: [String] = []
+        var stalePosition = false
 
-        if showMenuBarChange && !changeStr.isEmpty {
-            details.append(changeStr)
-        }
-        if let metrics = calculatePositionMetrics(symbol: symbol, current: priceValue) {
-            if showMenuBarPnl {
-                details.append(formatSignedAmount(metrics.pnl, suffix: "U"))
+        if usesBinancePositions {
+            details = binancePositionDetails(for: symbol)
+            stalePosition = binancePositionSyncError != nil && !details.isEmpty
+        } else if let priceValue {
+            let direction = positionDirections[symbol] ?? "long"
+            let change = calculateChangePercent(current: priceValue, base: basePrices[symbol], direction: direction)
+            if showMenuBarChange && !change.isEmpty {
+                details.append(change)
             }
-            if showMenuBarRoi {
-                details.append("ROI \(formatSignedAmount(metrics.roi, suffix: "%"))")
+            if let metrics = calculatePositionMetrics(symbol: symbol, current: priceValue) {
+                if showMenuBarPnl {
+                    details.append(formatSignedAmount(metrics.pnl, suffix: "U"))
+                }
+                if showMenuBarRoi {
+                    details.append("ROI \(formatSignedAmount(metrics.roi, suffix: "%"))")
+                }
             }
         }
 
         var titleParts = [currentIcon]
         if showMenuBarPrice {
-            titleParts.append(formatPrice(priceValue))
+            titleParts.append(priceValue.map(formatPrice) ?? "—")
         }
         let titlePrefix = titleParts.joined(separator: " ")
         var displayTitle = details.isEmpty ? titlePrefix : "\(titlePrefix) (\(details.joined(separator: ", ")))"
-        if watchlistRefreshFailed && (showMenuBarPrice || !details.isEmpty) {
+        if priceValue != nil && watchlistRefreshFailed && (showMenuBarPrice || (!usesBinancePositions && !details.isEmpty)) {
             displayTitle += " · \(localized("staleQuote"))"
+        }
+        if stalePosition {
+            displayTitle += " · \(localized("binanceStalePositions"))"
         }
         statusItem.button?.title = displayTitle
     }
@@ -123,11 +131,7 @@ extension AppDelegate {
     }
 
     func refreshStatusTitleFromCache() {
-        if let priceValue = latestPrices[currentSymbol] {
-            updateStatusTitle(symbol: currentSymbol, priceValue: priceValue)
-        } else {
-            statusItem.button?.title = showMenuBarPrice ? "\(currentIcon) —" : currentIcon
-        }
+        updateStatusTitle(symbol: currentSymbol, priceValue: latestPrices[currentSymbol])
     }
 
     @objc func switchApi(_ sender: NSMenuItem) {
@@ -224,7 +228,7 @@ extension AppDelegate {
         currentApiIndex = 0
         UserDefaults.standard.set(currentApiIndex, forKey: "currentApiIndex")
         setupMenu()
-        refreshStatusTitleFromCache()
+        restartBinancePositionSync()
         updatePrice()
     }
 

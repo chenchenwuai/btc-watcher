@@ -95,16 +95,11 @@ The script will:
 ```
 
 ### Project Structure
-- `Sources/BTCMenuBar/main.swift`: Application entry point
-- `Sources/BTCMenuBar/ApplicationDelegate.swift`: Application lifecycle and shared state
-- `Sources/BTCMenuBar/MenuBuilder.swift`: Menu construction
-- `Sources/BTCMenuBar/MenuActions.swift`: Menu item actions and app-level commands
-- `Sources/BTCMenuBar/PriceService.swift`: Price fetching, API switching, and proxy session setup
-- `Sources/BTCMenuBar/SettingsStore.swift`: UserDefaults loading and saving
-- `Sources/BTCMenuBar/PositionActions.swift`: Base price and position settings
-- `Sources/BTCMenuBar/Formatting.swift`: Display formatting helpers
-- `Sources/BTCMenuBar/Models.swift`: Shared data models
-- `Sources/BTCMenuBar/Constants.swift`: Static configuration and localized strings
+- `Sources/BTCMenuBar/App/`: Application entry point, lifecycle, and settings storage
+- `Sources/BTCMenuBar/MenuBar/`: Menu construction, menu actions, and manual position settings
+- `Sources/BTCMenuBar/BinanceAccount/`: Account credentials, open-order queries, and position sync
+- `Sources/BTCMenuBar/MarketData/`: Price fetching, API switching, and proxy session setup
+- `Sources/BTCMenuBar/Shared/`: Shared models, formatting, and localized strings
 - `AppIcon.svg`: Application icon source
 - `generate_icons.sh`: Icon generation script
 - `Info.plist`: Application configuration

@@ -102,16 +102,11 @@ cd btc-watcher
 ```
 
 ### 项目结构
-- `Sources/BTCMenuBar/main.swift`：应用启动入口
-- `Sources/BTCMenuBar/ApplicationDelegate.swift`：应用生命周期和共享状态
-- `Sources/BTCMenuBar/MenuBuilder.swift`：菜单构建
-- `Sources/BTCMenuBar/MenuActions.swift`：菜单动作和应用级命令
-- `Sources/BTCMenuBar/PriceService.swift`：价格获取、API 切换和代理会话配置
-- `Sources/BTCMenuBar/SettingsStore.swift`：UserDefaults 读取和保存
-- `Sources/BTCMenuBar/PositionActions.swift`：基准价和仓位设置
-- `Sources/BTCMenuBar/Formatting.swift`：展示格式化辅助逻辑
-- `Sources/BTCMenuBar/Models.swift`：共享数据模型
-- `Sources/BTCMenuBar/Constants.swift`：静态配置和多语言文案
+- `Sources/BTCMenuBar/App/` 保存应用入口、生命周期和设置读写代码。
+- `Sources/BTCMenuBar/MenuBar/` 保存菜单构建、菜单操作和手动仓位设置代码。
+- `Sources/BTCMenuBar/BinanceAccount/` 保存账户凭证、挂单查询和持仓同步代码。
+- `Sources/BTCMenuBar/MarketData/` 保存行情请求、API 切换和代理会话配置代码。
+- `Sources/BTCMenuBar/Shared/` 保存共享模型、格式化逻辑和多语言文案。
 - `AppIcon.svg`：应用图标源文件
 - `generate_icons.sh`：图标生成脚本
 - `Info.plist`：应用配置文件

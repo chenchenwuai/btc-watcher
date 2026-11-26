@@ -18,15 +18,21 @@ extension AppDelegate {
             selectItem.representedObject = symbol
             coinSubmenu.addItem(selectItem)
 
-            let editItem = NSMenuItem(title: localized("editPosition"), action: #selector(editPosition(_:)), keyEquivalent: "")
-            editItem.representedObject = symbol
-            coinSubmenu.addItem(editItem)
+            let ordersItem = NSMenuItem(title: localized("binanceOpenOrders"), action: #selector(showBinanceOrders(_:)), keyEquivalent: "")
+            ordersItem.representedObject = symbol
+            coinSubmenu.addItem(ordersItem)
 
-            if basePrices[symbol] != nil {
-                let clearBaseItem = NSMenuItem(title: localized("clearBasePrice"), action: #selector(clearBasePrice(_:)), keyEquivalent: "")
-                clearBaseItem.representedObject = symbol
-                coinSubmenu.addItem(clearBaseItem)
-                addPositionSummaryItems(to: coinSubmenu, for: symbol)
+            if !usesBinancePositions {
+                let editItem = NSMenuItem(title: localized("editPosition"), action: #selector(editPosition(_:)), keyEquivalent: "")
+                editItem.representedObject = symbol
+                coinSubmenu.addItem(editItem)
+
+                if basePrices[symbol] != nil {
+                    let clearBaseItem = NSMenuItem(title: localized("clearBasePrice"), action: #selector(clearBasePrice(_:)), keyEquivalent: "")
+                    clearBaseItem.representedObject = symbol
+                    coinSubmenu.addItem(clearBaseItem)
+                    addPositionSummaryItems(to: coinSubmenu, for: symbol)
+                }
             }
 
             if !defaultSymbols.contains(where: { $0.1 == symbol }) {
@@ -41,6 +47,10 @@ extension AppDelegate {
         }
 
         menu.addItem(NSMenuItem.separator())
+
+        if usesBinancePositions {
+            menu.addItem(NSMenuItem(title: localized("binancePositions"), action: #selector(showBinancePositions), keyEquivalent: ""))
+        }
 
         let contractUrl = Constants.getContractUrl(symbol: currentSymbol, isEnglish: isEnglish)
         let contractItem = NSMenuItem(title: localized("viewContract"), action: #selector(openContract), keyEquivalent: "")
@@ -103,6 +113,11 @@ extension AppDelegate {
         }
         settingsSubmenu.addItem(apiItem)
         settingsSubmenu.setSubmenu(apiSubmenu, for: apiItem)
+
+        settingsSubmenu.addItem(NSMenuItem(title: localized("binanceAccount"), action: #selector(configureBinanceAccount), keyEquivalent: ""))
+        let syncItem = NSMenuItem(title: localized("binanceSyncPositions"), action: #selector(toggleBinancePositionSync), keyEquivalent: "")
+        syncItem.state = isBinancePositionSyncEnabled ? .on : .off
+        settingsSubmenu.addItem(syncItem)
 
         let proxyItem = NSMenuItem(title: localized("proxySettings"), action: nil, keyEquivalent: "")
         let proxySubmenu = NSMenu()

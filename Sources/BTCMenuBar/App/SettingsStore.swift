@@ -4,6 +4,7 @@ extension AppDelegate {
     func loadSettings() {
         isEnglish = UserDefaults.standard.object(forKey: "isEnglish") as? Bool ?? true
         isFuturesMode = UserDefaults.standard.bool(forKey: "isFuturesMode")
+        isBinancePositionSyncEnabled = UserDefaults.standard.bool(forKey: "syncBinancePositions")
         isAutoSwitchApi = UserDefaults.standard.object(forKey: "autoSwitchApi") as? Bool ?? true
         currentApiIndex = UserDefaults.standard.object(forKey: "currentApiIndex") as? Int ?? 0
         if currentApiIndex < 0 || currentApiIndex >= apiEndpoints.count {
