@@ -40,11 +40,11 @@ The script will:
 ## Features
 
 - 🚀 Lightweight menu bar app
-- 💰 Multiple cryptocurrency support (BTC, ETH, DOGE)
+- 💰 Live watchlist for BTC, ETH, DOGE, and custom pairs
 - ➕ Custom coin pair addition
 - 🔄 Real-time price updates (1s, 2s, 5s intervals)
 - 📊 Base price tracking with percentage change display
-- 📈 Long/short position tracking with margin, quantity, leverage, PnL, and ROI
+- 📈 Single-form position editing with a notional value preview, PnL, and ROI
 - 🧩 Configurable menu bar display fields for compact screens
 - 🌐 Spot/Futures trading mode switch
 - 🔌 SOCKS5 proxy support (ClashX compatible)
@@ -60,8 +60,8 @@ The script will:
 ## Usage
 
 ### Basic Operations
-- Click the menu bar icon to view current price
-- Select different cryptocurrencies from the menu
+- Click the menu bar icon to view all watched prices. The menu marks cached prices as stale when refresh fails.
+- Open a coin's submenu and choose **Show in Menu Bar** to pin its price.
 - Use `⌘Q` to quit
 
 ### Customization
@@ -69,8 +69,7 @@ The script will:
 - Trading Mode: Switch between Spot and Futures
 - API Endpoints: Auto or manual selection
 - Proxy Settings: Configure SOCKS5 proxy (default port 7890 for ClashX)
-- Base Price: Set base price for each coin to track percentage change
-- Position Tracking: Choose long/short, set margin or quantity, and set leverage to estimate unrealized PnL and ROI
+- Position Tracking: Choose **Edit Position…** in a coin's submenu to set the entry price, direction, margin or quantity, and leverage and preview the notional value. Leave the amount blank to track change against the entry price alone.
 - Menu Bar Display: Toggle price, entry change, unrealized PnL, and ROI fields
 - Language: Switch between English and Chinese
 - Custom Pairs: Add your own trading pairs

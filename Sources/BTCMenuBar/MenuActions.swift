@@ -2,7 +2,6 @@ import Cocoa
 
 extension AppDelegate {
     func updateStatusTitle(symbol: String, priceValue: Double) {
-        currentPrice = formatPrice(priceValue)
         let basePrice = basePrices[symbol]
         let direction = positionDirections[symbol] ?? "long"
         let changeStr = calculateChangePercent(current: priceValue, base: basePrice, direction: direction)
@@ -22,10 +21,13 @@ extension AppDelegate {
 
         var titleParts = [currentIcon]
         if showMenuBarPrice {
-            titleParts.append(currentPrice)
+            titleParts.append(formatPrice(priceValue))
         }
         let titlePrefix = titleParts.joined(separator: " ")
-        let displayTitle = details.isEmpty ? titlePrefix : "\(titlePrefix) (\(details.joined(separator: ", ")))"
+        var displayTitle = details.isEmpty ? titlePrefix : "\(titlePrefix) (\(details.joined(separator: ", ")))"
+        if watchlistRefreshFailed && (showMenuBarPrice || !details.isEmpty) {
+            displayTitle += " · \(localized("staleQuote"))"
+        }
         statusItem.button?.title = displayTitle
     }
 
@@ -57,25 +59,18 @@ extension AppDelegate {
         let response = alert.runModal()
 
         if response == .alertFirstButtonReturn {
-            var symbol = input.stringValue.uppercased()
+            var symbol = input.stringValue.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+            guard !symbol.isEmpty else { return }
             if !symbol.hasSuffix("USDT") {
                 symbol += "USDT"
             }
-            if !symbol.isEmpty {
-                validateAndAddCoin(symbol)
-            }
+            validateAndAddCoin(symbol)
         }
     }
 
     @objc func switchCoin(_ sender: NSMenuItem) {
         guard let symbol = sender.representedObject as? String else { return }
-        currentSymbol = symbol
-        if let (_, _, icon) = symbols.first(where: { $0.1 == symbol }) {
-            currentIcon = icon
-            UserDefaults.standard.set(symbol, forKey: "lastSymbol")
-        }
-        setupMenu()
-        updatePrice()
+        updateSelectedSymbol(symbol)
     }
 
     @objc func setInterval1s() {
@@ -130,12 +125,16 @@ extension AppDelegate {
     func refreshStatusTitleFromCache() {
         if let priceValue = latestPrices[currentSymbol] {
             updateStatusTitle(symbol: currentSymbol, priceValue: priceValue)
+        } else {
+            statusItem.button?.title = showMenuBarPrice ? "\(currentIcon) —" : currentIcon
         }
     }
 
     @objc func switchApi(_ sender: NSMenuItem) {
         guard let index = sender.representedObject as? Int else { return }
+        cancelPriceUpdate()
         currentApiIndex = index
+        failedAttempts = 0
         isAutoSwitchApi = false
         UserDefaults.standard.set(currentApiIndex, forKey: "currentApiIndex")
         UserDefaults.standard.set(isAutoSwitchApi, forKey: "autoSwitchApi")
@@ -147,7 +146,7 @@ extension AppDelegate {
         isEnglish = !isEnglish
         UserDefaults.standard.set(isEnglish, forKey: "isEnglish")
         setupMenu()
-        currentPrice = localized("loading")
+        refreshStatusTitleFromCache()
         updatePrice()
     }
 
@@ -162,12 +161,13 @@ extension AppDelegate {
         }
 
         symbols.removeAll(where: { $0.1 == symbol })
+        latestPrices.removeValue(forKey: symbol)
+        cancelPriceUpdate()
+        useAllSpotPrices = false
         saveCustomSymbols()
         setupMenu()
-
-        if isDeletingCurrentSymbol {
-            updatePrice()
-        }
+        refreshStatusTitleFromCache()
+        updatePrice()
     }
 
     @objc func quit() {
@@ -205,20 +205,26 @@ extension AppDelegate {
     }
 
     @objc func setSpotMode() {
-        isFuturesMode = false
-        UserDefaults.standard.set(isFuturesMode, forKey: "isFuturesMode")
-        currentApiIndex = 0
-        UserDefaults.standard.set(currentApiIndex, forKey: "currentApiIndex")
-        setupMenu()
-        updatePrice()
+        setTradingMode(isFutures: false)
     }
 
     @objc func setFuturesMode() {
-        isFuturesMode = true
+        setTradingMode(isFutures: true)
+    }
+
+    private func setTradingMode(isFutures: Bool) {
+        guard isFuturesMode != isFutures else { return }
+        cancelPriceUpdate()
+        isFuturesMode = isFutures
+        latestPrices.removeAll()
+        watchlistRefreshFailed = false
+        useAllSpotPrices = false
+        failedAttempts = 0
         UserDefaults.standard.set(isFuturesMode, forKey: "isFuturesMode")
         currentApiIndex = 0
         UserDefaults.standard.set(currentApiIndex, forKey: "currentApiIndex")
         setupMenu()
+        refreshStatusTitleFromCache()
         updatePrice()
     }
 
@@ -227,6 +233,7 @@ extension AppDelegate {
         UserDefaults.standard.set(isProxyEnabled, forKey: "isProxyEnabled")
         configureUrlSession()
         setupMenu()
+        updatePrice()
     }
 
     @objc func setProxyHost() {
@@ -256,6 +263,7 @@ extension AppDelegate {
                 UserDefaults.standard.set(proxyHost, forKey: "proxyHost")
                 configureUrlSession()
                 setupMenu()
+                updatePrice()
             }
         }
     }
@@ -287,6 +295,7 @@ extension AppDelegate {
                 UserDefaults.standard.set(proxyPort, forKey: "proxyPort")
                 configureUrlSession()
                 setupMenu()
+                updatePrice()
             }
         }
     }

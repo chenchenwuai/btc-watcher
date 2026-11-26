@@ -1,10 +1,6 @@
-import Foundation
+import Cocoa
 
 extension AppDelegate {
-    func getCurrentApiEndpoint() -> String {
-        return apiEndpoints[currentApiIndex]
-    }
-
     func configureUrlSession() {
         let config = URLSessionConfiguration.default
         config.timeoutIntervalForRequest = 8
@@ -18,145 +14,138 @@ extension AppDelegate {
             ]
         }
 
+        cancelPriceUpdate()
+        urlSession.invalidateAndCancel()
         urlSession = URLSession(configuration: config)
+        failedAttempts = 0
     }
 
     func startTimer(interval: TimeInterval = 2.0, fireImmediately: Bool = true) {
         timer?.invalidate()
-        timer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in
+        let newTimer = Timer(timeInterval: interval, repeats: true) { [weak self] _ in
             self?.updatePrice()
         }
+        RunLoop.main.add(newTimer, forMode: .common)
+        RunLoop.main.add(newTimer, forMode: .eventTracking)
+        timer = newTimer
         if fireImmediately {
-            timer?.fire()
+            newTimer.fire()
         }
     }
 
-    func switchToNextApi() {
-        currentApiIndex = (currentApiIndex + 1) % apiEndpoints.count
-        UserDefaults.standard.set(currentApiIndex, forKey: "currentApiIndex")
-        print("Switching to API \(currentApiIndex + 1)")
+    func cancelPriceUpdate() {
+        priceRequest?.task.cancel()
+        priceRequest = nil
     }
 
     func updatePrice() {
-        let symbol = currentSymbol
-        guard let url = URL(string: "\(apiEndpoints[currentApiIndex])?symbol=\(symbol)") else { return }
+        guard priceRequest == nil, var components = URLComponents(string: apiEndpoints[currentApiIndex]) else { return }
 
-        urlSession.dataTask(with: url) { [weak self] data, response, error in
-            guard let self = self else { return }
-
-            if let error = error {
-                print("Error: \(error.localizedDescription)")
-                self.handleApiError()
-                return
-            }
-
-            guard let httpResponse = response as? HTTPURLResponse,
-                  (200..<300).contains(httpResponse.statusCode),
-                  let data = data,
-                  let priceValue = self.parsePrice(from: data)
-            else {
-                self.handleApiError()
-                return
-            }
-
-            DispatchQueue.main.async {
-                self.failedAttempts = 0
-                self.latestPrices[symbol] = priceValue
-                guard symbol == self.currentSymbol else { return }
-                self.updateStatusTitle(symbol: symbol, priceValue: priceValue)
-            }
-        }.resume()
-    }
-
-    func parsePrice(from data: Data) -> Double? {
-        guard let json = try? JSONSerialization.jsonObject(with: data, options: []) as? [String: Any],
-              let priceString = json["price"] as? String,
-              let priceValue = Double(priceString)
-        else {
-            return nil
+        let watchedSymbols = Set(symbols.map { $0.1 })
+        let requestsSpotSubset = !isFuturesMode && !useAllSpotPrices
+        if requestsSpotSubset, let data = try? JSONEncoder().encode(watchedSymbols.sorted()) {
+            components.queryItems = [URLQueryItem(name: "symbols", value: String(decoding: data, as: UTF8.self))]
         }
+        guard let url = components.url else { return }
 
-        return priceValue
-    }
+        let requestID = UUID()
+        let task = urlSession.dataTask(with: url) { [weak self] data, response, error in
+            let status = (response as? HTTPURLResponse)?.statusCode
+            let tickers = status.map { (200..<300).contains($0) } == true && error == nil
+                ? data.flatMap { try? JSONDecoder().decode([PriceTicker].self, from: $0) }
+                : nil
+            let invalidSpotSymbol = requestsSpotSubset && status == 400 && data.flatMap {
+                (try? JSONSerialization.jsonObject(with: $0) as? [String: Any])?["code"] as? Int
+            } == -1121
 
-    func fetchPrice(symbol: String, completion: @escaping (Double?) -> Void) {
-        guard let url = URL(string: "\(getCurrentApiEndpoint())?symbol=\(symbol)") else {
-            completion(nil)
-            return
+            RunLoop.main.perform(inModes: [.default, .eventTracking, .modalPanel]) { [weak self] in
+                guard let self, self.priceRequest?.id == requestID else { return }
+                self.priceRequest = nil
+
+                if invalidSpotSymbol {
+                    // A futures-only or delisted symbol can invalidate an entire spot batch.
+                    self.useAllSpotPrices = true
+                    self.updatePrice()
+                    return
+                }
+
+                if let tickers {
+                    var prices: [String: Double] = [:]
+                    for ticker in tickers where watchedSymbols.contains(ticker.symbol) {
+                        prices[ticker.symbol] = ticker.value
+                    }
+                    self.latestPrices = prices
+                    self.watchlistRefreshFailed = false
+                    self.failedAttempts = 0
+                } else {
+                    self.watchlistRefreshFailed = true
+                    self.handleApiError()
+                }
+
+                self.refreshWatchlistTitles()
+                self.refreshStatusTitleFromCache()
+            }
         }
-
-        urlSession.dataTask(with: url) { [weak self] data, response, error in
-            guard let self else {
-                completion(nil)
-                return
-            }
-
-            guard error == nil,
-                  let httpResponse = response as? HTTPURLResponse,
-                  (200..<300).contains(httpResponse.statusCode),
-                  let data = data,
-                  let priceValue = self.parsePrice(from: data)
-            else {
-                completion(nil)
-                return
-            }
-
-            completion(priceValue)
-        }.resume()
+        priceRequest = (requestID, task)
+        task.resume()
     }
 
     func updateSelectedSymbol(_ symbol: String) {
+        guard let (_, _, icon) = symbols.first(where: { $0.1 == symbol }) else { return }
         currentSymbol = symbol
-        if let (_, _, icon) = symbols.first(where: { $0.1 == symbol }) {
-            currentIcon = icon
-        }
+        currentIcon = icon
         UserDefaults.standard.set(symbol, forKey: "lastSymbol")
         setupMenu()
-        updatePrice()
-    }
-
-    func addValidatedCoin(_ symbol: String) {
-        let name = symbol.replacingOccurrences(of: "USDT", with: "")
-        symbols.append((name, symbol, name))
-        currentSymbol = symbol
-        currentIcon = name
-        saveCustomSymbols()
-        UserDefaults.standard.set(symbol, forKey: "lastSymbol")
-        setupMenu()
+        refreshStatusTitleFromCache()
         updatePrice()
     }
 
     func validateAndAddCoin(_ symbol: String) {
         if symbols.contains(where: { $0.1 == symbol }) {
-            DispatchQueue.main.async {
-                self.updateSelectedSymbol(symbol)
-            }
+            updateSelectedSymbol(symbol)
             return
         }
 
-        fetchPrice(symbol: symbol) { [weak self] price in
-            guard let self, let price else {
-                DispatchQueue.main.async {
-                    self?.showError("invalidCoin")
-                }
-                return
-            }
+        let endpoint = apiEndpoints[currentApiIndex]
+        guard var components = URLComponents(string: endpoint) else { return }
+        components.queryItems = [URLQueryItem(name: "symbol", value: symbol)]
+        guard let url = components.url else { return }
 
-            DispatchQueue.main.async {
+        let session = urlSession
+        session.dataTask(with: url) { [weak self] data, response, error in
+            let status = (response as? HTTPURLResponse)?.statusCode
+            let ticker = status.map { (200..<300).contains($0) } == true && error == nil
+                ? data.flatMap { try? JSONDecoder().decode(PriceTicker.self, from: $0) }
+                : nil
+
+            DispatchQueue.main.async { [weak self] in
+                guard let self, self.urlSession === session, self.apiEndpoints[self.currentApiIndex] == endpoint else { return }
+                guard let ticker, ticker.symbol == symbol, let price = ticker.value else {
+                    self.showError("invalidCoin")
+                    return
+                }
+
+                if !self.symbols.contains(where: { $0.1 == symbol }) {
+                    let name = String(symbol.dropLast("USDT".count))
+                    self.symbols.append((name, symbol, name))
+                    self.cancelPriceUpdate()
+                    self.useAllSpotPrices = false
+                    self.saveCustomSymbols()
+                }
+
                 self.latestPrices[symbol] = price
-                self.addValidatedCoin(symbol)
+                self.updateSelectedSymbol(symbol)
             }
-        }
+        }.resume()
     }
 
-    func handleApiError() {
-        DispatchQueue.main.async {
-            self.failedAttempts += 1
-
-            if self.isAutoSwitchApi && self.failedAttempts >= 3 {
-                self.switchToNextApi()
-                self.failedAttempts = 0
-            }
+    private func handleApiError() {
+        failedAttempts += 1
+        if isAutoSwitchApi && failedAttempts >= 3 {
+            currentApiIndex = (currentApiIndex + 1) % apiEndpoints.count
+            UserDefaults.standard.set(currentApiIndex, forKey: "currentApiIndex")
+            print("Switching to API \(currentApiIndex + 1)")
+            failedAttempts = 0
         }
     }
 }

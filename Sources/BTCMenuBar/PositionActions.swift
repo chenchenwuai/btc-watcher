@@ -1,192 +1,41 @@
 import Cocoa
 
 extension AppDelegate {
-    @objc func setBasePrice(_ sender: NSMenuItem) {
+    @objc func editPosition(_ sender: NSMenuItem) {
         guard let symbol = sender.representedObject as? String else { return }
 
         let alert = NSAlert()
-        alert.messageText = localized("setBasePrice")
-        if let existingPrice = basePrices[symbol] {
-            alert.informativeText = "\(symbol)\n\(localized("basePrice")): \(formatPrice(existingPrice))"
-        } else {
-            alert.informativeText = "\(symbol)"
-        }
-
-        let input = NSTextField(frame: NSRect(x: 0, y: 0, width: 200, height: 24))
-        input.placeholderString = localized("emptyBasePriceUsesCurrent")
-        alert.accessoryView = input
-        alert.addButton(withTitle: localized("ok"))
+        alert.messageText = localized("editPosition")
+        alert.informativeText = symbol
+        let saveButton = alert.addButton(withTitle: localized("savePosition"))
         alert.addButton(withTitle: localized("cancel"))
 
+        let editor = PositionEditorView(app: self, symbol: symbol)
+        editor.onValidityChange = { [weak saveButton] isValid in
+            saveButton?.isEnabled = isValid
+        }
+        saveButton.isEnabled = editor.draft != nil
+        alert.accessoryView = editor
+        alert.window.initialFirstResponder = editor.entryField
         NSApp.activate(ignoringOtherApps: true)
 
-        DispatchQueue.main.async {
-            input.window?.makeFirstResponder(input)
+        guard alert.runModal() == .alertFirstButtonReturn, let draft = editor.draft else { return }
+
+        basePrices[symbol] = draft.entryPrice
+        positionDirections[symbol] = editor.direction
+        positionInputModes[symbol] = editor.mode.rawValue
+        positionLeverages[symbol] = draft.leverage
+        switch editor.mode {
+        case .margin:
+            positionMargins[symbol] = draft.amount
+        case .quantity:
+            positionQuantities[symbol] = draft.amount
         }
 
-        let response = alert.runModal()
-
-        if response == .alertFirstButtonReturn {
-            let priceString = input.stringValue.trimmingCharacters(in: .whitespaces)
-            if priceString.isEmpty {
-                setBasePriceToCurrentPrice(for: symbol)
-            } else if let price = Double(priceString), price > 0 {
-                updateBasePrice(price, for: symbol)
-            }
-        }
-    }
-
-    func setBasePriceToCurrentPrice(for symbol: String) {
-        if let latestPrice = latestPrices[symbol] {
-            updateBasePrice(latestPrice, for: symbol)
-            return
-        }
-
-        guard let url = URL(string: "\(getCurrentApiEndpoint())?symbol=\(symbol)") else { return }
-
-        urlSession.dataTask(with: url) { [weak self] data, _, _ in
-            guard let self,
-                  let data = data,
-                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                  let priceString = json["price"] as? String,
-                  let price = Double(priceString),
-                  price > 0
-            else {
-                DispatchQueue.main.async {
-                    self?.showError("invalidCoin")
-                }
-                return
-            }
-
-            DispatchQueue.main.async {
-                self.latestPrices[symbol] = price
-                self.updateBasePrice(price, for: symbol)
-            }
-        }.resume()
-    }
-
-    func updateBasePrice(_ price: Double, for symbol: String) {
-        basePrices[symbol] = price
-        if positionDirections[symbol] == nil {
-            positionDirections[symbol] = "long"
-        }
         saveBasePrices()
         savePositionSettings()
         setupMenu()
-        if symbol == currentSymbol {
-            updatePrice()
-        }
-    }
-
-    @objc func setLongPosition(_ sender: NSMenuItem) {
-        setPositionDirection("long", sender: sender)
-    }
-
-    @objc func setShortPosition(_ sender: NSMenuItem) {
-        setPositionDirection("short", sender: sender)
-    }
-
-    func setPositionDirection(_ direction: String, sender: NSMenuItem) {
-        guard let symbol = sender.representedObject as? String else { return }
-        positionDirections[symbol] = direction
-        savePositionDirections()
-        setupMenu()
-        if symbol == currentSymbol {
-            updatePrice()
-        }
-    }
-
-    @objc func setPositionMargin(_ sender: NSMenuItem) {
-        guard let symbol = sender.representedObject as? String else { return }
-        showPositionValueAlert(
-            symbol: symbol,
-            titleKey: "setMargin",
-            placeholder: "10",
-            existingValue: positionMargins[symbol],
-            suffix: "U"
-        ) { [weak self] value in
-            self?.positionMargins[symbol] = value
-            self?.positionInputModes[symbol] = "margin"
-            self?.savePositionSettings()
-            self?.setupMenu()
-            if symbol == self?.currentSymbol {
-                self?.updatePrice()
-            }
-        }
-    }
-
-    @objc func setPositionQuantity(_ sender: NSMenuItem) {
-        guard let symbol = sender.representedObject as? String else { return }
-        showPositionValueAlert(
-            symbol: symbol,
-            titleKey: "setQuantity",
-            placeholder: "10000",
-            existingValue: positionQuantities[symbol],
-            suffix: coinName(for: symbol)
-        ) { [weak self] value in
-            self?.positionQuantities[symbol] = value
-            self?.positionInputModes[symbol] = "quantity"
-            self?.savePositionSettings()
-            self?.setupMenu()
-            if symbol == self?.currentSymbol {
-                self?.updatePrice()
-            }
-        }
-    }
-
-    @objc func setPositionLeverage(_ sender: NSMenuItem) {
-        guard let symbol = sender.representedObject as? String else { return }
-        showPositionValueAlert(
-            symbol: symbol,
-            titleKey: "setLeverage",
-            placeholder: "50",
-            existingValue: positionLeverages[symbol],
-            suffix: "x"
-        ) { [weak self] value in
-            self?.positionLeverages[symbol] = value
-            self?.savePositionSettings()
-            self?.setupMenu()
-            if symbol == self?.currentSymbol {
-                self?.updatePrice()
-            }
-        }
-    }
-
-    func showPositionValueAlert(
-        symbol: String,
-        titleKey: String,
-        placeholder: String,
-        existingValue: Double?,
-        suffix: String,
-        onSave: (Double) -> Void
-    ) {
-        let alert = NSAlert()
-        alert.messageText = localized(titleKey)
-        alert.informativeText = "\(symbol) \(suffix)"
-
-        let input = NSTextField(frame: NSRect(x: 0, y: 0, width: 200, height: 24))
-        input.placeholderString = placeholder
-        if let existingValue = existingValue, existingValue > 0 {
-            input.stringValue = formatPrice(existingValue)
-        }
-        alert.accessoryView = input
-        alert.addButton(withTitle: localized("ok"))
-        alert.addButton(withTitle: localized("cancel"))
-
-        NSApp.activate(ignoringOtherApps: true)
-
-        DispatchQueue.main.async {
-            input.window?.makeFirstResponder(input)
-        }
-
-        let response = alert.runModal()
-
-        if response == .alertFirstButtonReturn {
-            let valueString = input.stringValue.trimmingCharacters(in: .whitespaces)
-            if let value = Double(valueString), value > 0 {
-                onSave(value)
-            }
-        }
+        refreshStatusTitleFromCache()
     }
 
     @objc func clearBasePrice(_ sender: NSMenuItem) {
@@ -200,8 +49,145 @@ extension AppDelegate {
         saveBasePrices()
         savePositionSettings()
         setupMenu()
-        if symbol == currentSymbol {
-            updatePrice()
+        refreshStatusTitleFromCache()
+    }
+}
+
+private final class PositionEditorView: NSView, NSTextFieldDelegate {
+    private unowned let app: AppDelegate
+    private let symbol: String
+    private let directionPicker = NSPopUpButton(frame: .zero, pullsDown: false)
+    private let modePicker = NSPopUpButton(frame: .zero, pullsDown: false)
+    private let amountField = NSTextField()
+    private let amountLabel = NSTextField(labelWithString: "")
+    private let leverageField = NSTextField()
+    private let preview = NSTextField(labelWithString: "")
+    private var amountInputs: [PositionInputMode: String]
+
+    let entryField = NSTextField()
+    var onValidityChange: ((Bool) -> Void)?
+    private(set) var mode: PositionInputMode
+
+    var direction: String {
+        directionPicker.indexOfSelectedItem == 1 ? "short" : "long"
+    }
+
+    var draft: (entryPrice: Double, leverage: Double, amount: Double?, size: PositionSize?)? {
+        guard let entryPrice = positiveValue(entryField), let leverage = positiveValue(leverageField) else { return nil }
+        if amountField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return (entryPrice, leverage, nil, nil)
         }
+
+        guard let amount = positiveValue(amountField),
+              let size = PositionSize(entryPrice: entryPrice, leverage: leverage, mode: mode, amount: amount) else { return nil }
+        return (entryPrice, leverage, amount, size)
+    }
+
+    init(app: AppDelegate, symbol: String) {
+        self.app = app
+        self.symbol = symbol
+        mode = app.positionInputMode(for: symbol)
+        amountInputs = [
+            .margin: app.positionMargins[symbol].map { String($0) } ?? "",
+            .quantity: app.positionQuantities[symbol].map { String($0) } ?? "",
+        ]
+        super.init(frame: .zero)
+
+        entryField.stringValue = app.basePrices[symbol].map { String($0) } ?? ""
+        leverageField.stringValue = String(app.positionLeverages[symbol] ?? 1)
+        amountField.placeholderString = app.localized("optionalPositionAmount")
+        for field in [entryField, leverageField, amountField] {
+            field.delegate = self
+            field.widthAnchor.constraint(greaterThanOrEqualToConstant: 128).isActive = true
+        }
+
+        let currentPriceButton = NSButton(title: app.localized("useCurrentPrice"), target: self, action: #selector(useCurrentPrice))
+        let entryControls = NSStackView(views: [entryField, currentPriceButton])
+        entryControls.orientation = .horizontal
+        entryControls.alignment = .centerY
+        entryControls.spacing = 8
+
+        directionPicker.addItems(withTitles: [app.localized("longPosition"), app.localized("shortPosition")])
+        directionPicker.selectItem(at: app.positionDirections[symbol] == "short" ? 1 : 0)
+        modePicker.addItems(withTitles: [app.localized("marginMode"), app.localized("quantityMode")])
+        modePicker.selectItem(at: mode == .quantity ? 1 : 0)
+        modePicker.target = self
+        modePicker.action = #selector(changeInputMode)
+        updateAmountField()
+
+        let grid = NSGridView(views: [
+            [NSTextField(labelWithString: app.localized("entryPrice")), entryControls],
+            [NSTextField(labelWithString: app.localized("positionDirection")), directionPicker],
+            [NSTextField(labelWithString: app.localized("inputMode")), modePicker],
+            [amountLabel, amountField],
+            [NSTextField(labelWithString: app.localized("leverage")), leverageField],
+        ])
+        grid.rowSpacing = 8
+        grid.columnSpacing = 10
+        grid.column(at: 0).xPlacement = .trailing
+        grid.column(at: 1).xPlacement = .fill
+
+        preview.textColor = .secondaryLabelColor
+        preview.lineBreakMode = .byTruncatingTail
+        preview.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        let stack = NSStackView(views: [grid, preview])
+        stack.orientation = .vertical
+        stack.alignment = .leading
+        stack.spacing = 12
+
+        updatePreview()
+        frame.size = stack.fittingSize
+        stack.frame = bounds
+        stack.autoresizingMask = [.width, .height]
+        addSubview(stack)
+    }
+
+    required init?(coder: NSCoder) {
+        return nil
+    }
+
+    func controlTextDidChange(_ notification: Notification) {
+        updatePreview()
+    }
+
+    @objc private func useCurrentPrice() {
+        guard !app.watchlistRefreshFailed, let price = app.latestPrices[symbol] else {
+            preview.stringValue = app.localized("currentPriceUnavailable")
+            return
+        }
+
+        entryField.stringValue = String(price)
+        updatePreview()
+    }
+
+    @objc private func changeInputMode() {
+        amountInputs[mode] = amountField.stringValue
+        mode = modePicker.indexOfSelectedItem == 1 ? .quantity : .margin
+        updateAmountField()
+        updatePreview()
+    }
+
+    private func updateAmountField() {
+        amountLabel.stringValue = mode == .quantity
+            ? "\(app.localized("quantity")) (\(app.coinName(for: symbol)))"
+            : "\(app.localized("margin")) (USDT)"
+        amountField.stringValue = amountInputs[mode] ?? ""
+    }
+
+    private func updatePreview() {
+        if let draft {
+            let notional = draft.size.map { app.formatAmount($0.notional, suffix: " USDT") } ?? "—"
+            preview.stringValue = "\(app.localized("notional")): \(notional)"
+            onValidityChange?(true)
+        } else {
+            preview.stringValue = app.localized("invalidPositionValues")
+            onValidityChange?(false)
+        }
+    }
+
+    private func positiveValue(_ field: NSTextField) -> Double? {
+        let text = field.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let value = Double(text), value.isFinite, value > 0 else { return nil }
+        return value
     }
 }

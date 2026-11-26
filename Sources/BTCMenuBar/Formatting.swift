@@ -6,39 +6,33 @@ extension AppDelegate {
     }
 
     func calculateChangePercent(current: Double, base: Double?, direction: String) -> String {
-        guard let base = base, base > 0 else { return "" }
+        guard let base = base, base.isFinite, base > 0 else { return "" }
         let percent = (direction == "short" ? (base - current) : (current - base)) / base * 100
+        guard percent.isFinite else { return "" }
         let sign = percent >= 0 ? "+" : ""
         return String(format: "%@%.2f%%", sign, percent)
     }
 
+    func positionInputMode(for symbol: String) -> PositionInputMode {
+        positionInputModes[symbol].flatMap(PositionInputMode.init(rawValue:)) ?? .margin
+    }
+
+    func positionSize(for symbol: String) -> PositionSize? {
+        let mode = positionInputMode(for: symbol)
+        let amount = mode == .quantity ? positionQuantities[symbol] : positionMargins[symbol]
+        guard let entryPrice = basePrices[symbol], let amount else { return nil }
+        return PositionSize(entryPrice: entryPrice, leverage: positionLeverages[symbol] ?? 1, mode: mode, amount: amount)
+    }
+
     func calculatePositionMetrics(symbol: String, current: Double) -> PositionMetrics? {
-        guard let entryPrice = basePrices[symbol], entryPrice > 0 else { return nil }
-        let leverage = positionLeverages[symbol] ?? 1
-        guard leverage > 0 else { return nil }
-
-        let mode = positionInputModes[symbol] ?? "margin"
-        let quantity: Double
-        let margin: Double
-        let notional: Double
-
-        if mode == "quantity" {
-            guard let savedQuantity = positionQuantities[symbol], savedQuantity > 0 else { return nil }
-            quantity = savedQuantity
-            notional = entryPrice * savedQuantity
-            margin = notional / leverage
-        } else {
-            guard let savedMargin = positionMargins[symbol], savedMargin > 0 else { return nil }
-            margin = savedMargin
-            notional = savedMargin * leverage
-            quantity = notional / entryPrice
-        }
+        guard let entryPrice = basePrices[symbol], let size = positionSize(for: symbol) else { return nil }
 
         let direction = positionDirections[symbol] ?? "long"
-        let pnl = direction == "short" ? (entryPrice - current) * quantity : (current - entryPrice) * quantity
-        let roi = margin > 0 ? pnl / margin * 100 : 0
+        let pnl = direction == "short" ? (entryPrice - current) * size.quantity : (current - entryPrice) * size.quantity
+        let roi = pnl / size.margin * 100
+        guard pnl.isFinite, roi.isFinite else { return nil }
 
-        return PositionMetrics(quantity: quantity, margin: margin, notional: notional, pnl: pnl, roi: roi)
+        return PositionMetrics(quantity: size.quantity, margin: size.margin, notional: size.notional, pnl: pnl, roi: roi)
     }
 
     func formatPrice(_ price: Double) -> String {

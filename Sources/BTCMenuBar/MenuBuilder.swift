@@ -7,48 +7,26 @@ extension AppDelegate {
         menu.addItem(NSMenuItem(title: localized("addCoin"), action: #selector(addCustomCoin), keyEquivalent: "n"))
         menu.addItem(NSMenuItem.separator())
 
-        for (name, symbol, _) in symbols {
-            let item = NSMenuItem(title: name, action: #selector(switchCoin(_:)), keyEquivalent: "")
-            item.representedObject = symbol
+        for (name, symbol, icon) in symbols {
+            let item = NSMenuItem(title: watchlistTitle(name: name, symbol: symbol), action: nil, keyEquivalent: "")
+            item.representedObject = CoinSymbol(name: name, symbol: symbol, icon: icon)
             item.state = symbol == currentSymbol ? .on : .off
 
             let coinSubmenu = NSMenu()
 
-            let setBaseItem = NSMenuItem(title: localized("setBasePrice"), action: #selector(setBasePrice(_:)), keyEquivalent: "")
-            setBaseItem.representedObject = symbol
-            coinSubmenu.addItem(setBaseItem)
+            let selectItem = NSMenuItem(title: localized("showCoinInMenuBar"), action: #selector(switchCoin(_:)), keyEquivalent: "")
+            selectItem.representedObject = symbol
+            coinSubmenu.addItem(selectItem)
 
-            if basePrices[symbol] != nil {
-                let direction = positionDirections[symbol] ?? "long"
-                let longItem = NSMenuItem(title: localized("longPosition"), action: #selector(setLongPosition(_:)), keyEquivalent: "")
-                longItem.representedObject = symbol
-                longItem.state = direction == "long" ? .on : .off
-                coinSubmenu.addItem(longItem)
-
-                let shortItem = NSMenuItem(title: localized("shortPosition"), action: #selector(setShortPosition(_:)), keyEquivalent: "")
-                shortItem.representedObject = symbol
-                shortItem.state = direction == "short" ? .on : .off
-                coinSubmenu.addItem(shortItem)
-
-                let marginItem = NSMenuItem(title: localized("setMargin"), action: #selector(setPositionMargin(_:)), keyEquivalent: "")
-                marginItem.representedObject = symbol
-                coinSubmenu.addItem(marginItem)
-
-                let quantityItem = NSMenuItem(title: localized("setQuantity"), action: #selector(setPositionQuantity(_:)), keyEquivalent: "")
-                quantityItem.representedObject = symbol
-                coinSubmenu.addItem(quantityItem)
-
-                let leverageItem = NSMenuItem(title: localized("setLeverage"), action: #selector(setPositionLeverage(_:)), keyEquivalent: "")
-                leverageItem.representedObject = symbol
-                coinSubmenu.addItem(leverageItem)
-
-                addPositionSummaryItems(to: coinSubmenu, for: symbol)
-            }
+            let editItem = NSMenuItem(title: localized("editPosition"), action: #selector(editPosition(_:)), keyEquivalent: "")
+            editItem.representedObject = symbol
+            coinSubmenu.addItem(editItem)
 
             if basePrices[symbol] != nil {
                 let clearBaseItem = NSMenuItem(title: localized("clearBasePrice"), action: #selector(clearBasePrice(_:)), keyEquivalent: "")
                 clearBaseItem.representedObject = symbol
                 coinSubmenu.addItem(clearBaseItem)
+                addPositionSummaryItems(to: coinSubmenu, for: symbol)
             }
 
             if !defaultSymbols.contains(where: { $0.1 == symbol }) {
@@ -58,10 +36,7 @@ extension AppDelegate {
                 coinSubmenu.addItem(deleteItem)
             }
 
-            if coinSubmenu.items.count > 0 {
-                item.submenu = coinSubmenu
-            }
-
+            item.submenu = coinSubmenu
             menu.addItem(item)
         }
 
@@ -164,30 +139,35 @@ extension AppDelegate {
         statusItem.menu = menu
     }
 
-    func addPositionSummaryItems(to menu: NSMenu, for symbol: String) {
+    func refreshWatchlistTitles() {
+        guard let menu = statusItem.menu else { return }
+        for item in menu.items {
+            guard let coin = item.representedObject as? CoinSymbol else { continue }
+            let title = watchlistTitle(name: coin.name, symbol: coin.symbol)
+            if item.title != title {
+                item.title = title
+            }
+        }
+    }
+
+    private func watchlistTitle(name: String, symbol: String) -> String {
+        guard let price = latestPrices[symbol] else { return "\(name)   —" }
+        let suffix = watchlistRefreshFailed ? " (\(localized("staleQuote")))" : ""
+        return "\(name)   \(formatPrice(price))\(suffix)"
+    }
+
+    private func addPositionSummaryItems(to menu: NSMenu, for symbol: String) {
         let leverage = positionLeverages[symbol] ?? 1
-        let mode = positionInputModes[symbol] ?? "margin"
+        let mode = positionInputMode(for: symbol)
 
         menu.addItem(NSMenuItem.separator())
-        let modeTitle = mode == "quantity" ? localized("quantityMode") : localized("marginMode")
+        let modeTitle = mode == .quantity ? localized("quantityMode") : localized("marginMode")
         menu.addItem(NSMenuItem(title: "\(localized("inputMode")): \(modeTitle)", action: nil, keyEquivalent: ""))
         menu.addItem(NSMenuItem(title: "\(localized("leverage")): \(formatLeverage(leverage))", action: nil, keyEquivalent: ""))
 
-        if mode == "quantity" {
-            if let quantity = positionQuantities[symbol], quantity > 0 {
-                menu.addItem(NSMenuItem(title: "\(localized("quantity")): \(formatPrice(quantity)) \(coinName(for: symbol))", action: nil, keyEquivalent: ""))
-                if let entryPrice = basePrices[symbol], entryPrice > 0 {
-                    let notional = entryPrice * quantity
-                    menu.addItem(NSMenuItem(title: "\(localized("margin")): \(formatAmount(notional / leverage, suffix: "U"))", action: nil, keyEquivalent: ""))
-                    menu.addItem(NSMenuItem(title: "\(localized("notional")): \(formatAmount(notional, suffix: "U"))", action: nil, keyEquivalent: ""))
-                }
-            }
-        } else if let margin = positionMargins[symbol], margin > 0 {
-            menu.addItem(NSMenuItem(title: "\(localized("margin")): \(formatAmount(margin, suffix: "U"))", action: nil, keyEquivalent: ""))
-            menu.addItem(NSMenuItem(title: "\(localized("notional")): \(formatAmount(margin * leverage, suffix: "U"))", action: nil, keyEquivalent: ""))
-            if let entryPrice = basePrices[symbol], entryPrice > 0 {
-                menu.addItem(NSMenuItem(title: "\(localized("quantity")): \(formatPrice(margin * leverage / entryPrice)) \(coinName(for: symbol))", action: nil, keyEquivalent: ""))
-            }
-        }
+        guard let size = positionSize(for: symbol) else { return }
+        menu.addItem(NSMenuItem(title: "\(localized("margin")): \(formatAmount(size.margin, suffix: "U"))", action: nil, keyEquivalent: ""))
+        menu.addItem(NSMenuItem(title: "\(localized("quantity")): \(formatPrice(size.quantity)) \(coinName(for: symbol))", action: nil, keyEquivalent: ""))
+        menu.addItem(NSMenuItem(title: "\(localized("notional")): \(formatAmount(size.notional, suffix: "U"))", action: nil, keyEquivalent: ""))
     }
 }

@@ -3,7 +3,6 @@ import Cocoa
 class AppDelegate: NSObject, NSApplicationDelegate {
     var statusItem: NSStatusItem!
     var timer: Timer?
-    var currentPrice: String = "Loading..."
     var currentSymbol: String = "BTCUSDT"
     var currentIcon: String = "₿"
     var isEnglish: Bool = true
@@ -23,6 +22,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var positionQuantities: [String: Double] = [:]
     var positionLeverages: [String: Double] = [:]
     var latestPrices: [String: Double] = [:]
+    var priceRequest: (id: UUID, task: URLSessionDataTask)?
+    var useAllSpotPrices = false
+    var watchlistRefreshFailed = false
     var showMenuBarPrice: Bool = true
     var showMenuBarChange: Bool = true
     var showMenuBarPnl: Bool = true
@@ -45,7 +47,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         if let button = statusItem.button {
             button.image = nil
-            button.title = "\(currentIcon) \(currentPrice)"
+            button.title = showMenuBarPrice ? "\(currentIcon) \(localized("loading"))" : currentIcon
         }
 
         setupMenu()
