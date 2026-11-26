@@ -8,6 +8,8 @@ APP_NAME="BTCWatcher"
 APP_BUNDLE="$APP_NAME.app"
 APP_EXECUTABLE="$APP_BUNDLE/Contents/MacOS/$APP_NAME"
 ZIP_NAME="$APP_NAME.app.zip"
+MIN_MACOS_VERSION=$(plutil -extract LSMinimumSystemVersion raw -o - Info.plist)
+SWIFT_TARGET="$(uname -m)-apple-macosx${MIN_MACOS_VERSION}"
 
 # 删除已存在的 zip 文件
 if [ -f "$ZIP_NAME" ]; then
@@ -31,7 +33,7 @@ SWIFT_SOURCES=()
 while IFS= read -r source; do
     SWIFT_SOURCES+=("$source")
 done < <(find Sources/BTCMenuBar -name "*.swift" -print | sort)
-swiftc -parse-as-library -o "$APP_EXECUTABLE" "${SWIFT_SOURCES[@]}"
+swiftc -target "$SWIFT_TARGET" -parse-as-library -o "$APP_EXECUTABLE" "${SWIFT_SOURCES[@]}"
 
 # Set executable permissions
 echo "🔒 Setting permissions..."
