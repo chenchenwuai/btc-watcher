@@ -89,17 +89,19 @@ extension AppDelegate {
     }
 
     @objc func setInterval1s() {
-        startTimer(interval: 1.0, fireImmediately: false)
-        setupMenu()
+        setUpdateInterval(1)
     }
 
     @objc func setInterval2s() {
-        startTimer(interval: 2.0, fireImmediately: false)
-        setupMenu()
+        setUpdateInterval(2)
     }
 
     @objc func setInterval5s() {
-        startTimer(interval: 5.0, fireImmediately: false)
+        setUpdateInterval(5)
+    }
+
+    func setUpdateInterval(_ interval: TimeInterval) {
+        startTimer(interval: interval, fireImmediately: false)
         setupMenu()
     }
 
@@ -116,8 +118,8 @@ extension AppDelegate {
         setupMenu()
     }
 
-    @objc func selectPriceTrendPeriod(_ sender: NSMenuItem) {
-        guard let period = sender.representedObject as? PriceTrendPeriod, priceTrendPeriod != period else { return }
+    func selectPriceTrendPeriod(_ period: PriceTrendPeriod) {
+        guard priceTrendPeriod != period else { return }
         priceTrendPeriod = period
         if period == .off {
             priceTrendHistory = PriceTrendHistory()
@@ -156,8 +158,8 @@ extension AppDelegate {
         updateStatusTitle(symbol: currentSymbol, priceValue: latestPrices[currentSymbol])
     }
 
-    @objc func switchApi(_ sender: NSMenuItem) {
-        guard let index = sender.representedObject as? Int else { return }
+    func switchApi(_ index: Int) {
+        guard apiEndpoints.indices.contains(index) else { return }
         cancelPriceUpdate()
         cancelHistoricalTrendRequest()
         currentApiIndex = index
@@ -232,15 +234,7 @@ extension AppDelegate {
         }
     }
 
-    @objc func setSpotMode() {
-        setTradingMode(isFutures: false)
-    }
-
-    @objc func setFuturesMode() {
-        setTradingMode(isFutures: true)
-    }
-
-    private func setTradingMode(isFutures: Bool) {
+    func setTradingMode(isFutures: Bool) {
         guard isFuturesMode != isFutures else { return }
         cancelPriceUpdate()
         isFuturesMode = isFutures
@@ -264,67 +258,17 @@ extension AppDelegate {
         updatePrice()
     }
 
-    @objc func setProxyHost() {
-        let alert = NSAlert()
-        alert.messageText = localized("proxySettings")
-        alert.informativeText = localized("proxyHost")
-
-        let input = NSTextField(frame: NSRect(x: 0, y: 0, width: 200, height: 24))
-        input.stringValue = proxyHost
-        input.placeholderString = "127.0.0.1"
-        alert.accessoryView = input
-        alert.addButton(withTitle: localized("ok"))
-        alert.addButton(withTitle: localized("cancel"))
-
-        NSApp.activate(ignoringOtherApps: true)
-
-        DispatchQueue.main.async {
-            input.window?.makeFirstResponder(input)
-        }
-
-        let response = alert.runModal()
-
-        if response == .alertFirstButtonReturn {
-            let newHost = input.stringValue.trimmingCharacters(in: .whitespaces)
-            if !newHost.isEmpty {
-                proxyHost = newHost
-                UserDefaults.standard.set(proxyHost, forKey: "proxyHost")
-                configureUrlSession()
-                setupMenu()
-                updatePrice()
-            }
-        }
-    }
-
-    @objc func setProxyPort() {
-        let alert = NSAlert()
-        alert.messageText = localized("proxySettings")
-        alert.informativeText = localized("proxyPort")
-
-        let input = NSTextField(frame: NSRect(x: 0, y: 0, width: 200, height: 24))
-        input.stringValue = proxyPort
-        input.placeholderString = "7890"
-        alert.accessoryView = input
-        alert.addButton(withTitle: localized("ok"))
-        alert.addButton(withTitle: localized("cancel"))
-
-        NSApp.activate(ignoringOtherApps: true)
-
-        DispatchQueue.main.async {
-            input.window?.makeFirstResponder(input)
-        }
-
-        let response = alert.runModal()
-
-        if response == .alertFirstButtonReturn {
-            let newPort = input.stringValue.trimmingCharacters(in: .whitespaces)
-            if !newPort.isEmpty && Int(newPort) != nil {
-                proxyPort = newPort
-                UserDefaults.standard.set(proxyPort, forKey: "proxyPort")
-                configureUrlSession()
-                setupMenu()
-                updatePrice()
-            }
-        }
+    func saveProxyAddress(host: String, port: String) -> Bool {
+        let host = host.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !host.isEmpty, let portNumber = Int(port.trimmingCharacters(in: .whitespacesAndNewlines)),
+              (1...65535).contains(portNumber) else { return false }
+        proxyHost = host
+        proxyPort = String(portNumber)
+        UserDefaults.standard.set(proxyHost, forKey: "proxyHost")
+        UserDefaults.standard.set(proxyPort, forKey: "proxyPort")
+        configureUrlSession()
+        setupMenu()
+        updatePrice()
+        return true
     }
 }

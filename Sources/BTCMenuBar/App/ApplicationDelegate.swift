@@ -2,6 +2,8 @@ import Cocoa
 
 class AppDelegate: NSObject, NSApplicationDelegate {
     var statusItem: NSStatusItem!
+    var quotePanel: QuotePanel?
+    var settingsWindow: SettingsWindow?
     var timer: Timer?
     var currentSymbol: String = "BTCUSDT"
     var currentIcon: String = "₿"

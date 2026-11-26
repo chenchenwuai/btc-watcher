@@ -1,54 +1,36 @@
 import Cocoa
 
 extension AppDelegate {
-    @objc func configureBinanceAccount() {
-        guard !isBinanceRequestInProgress else { return showError("binanceRequestInProgress") }
+    @MainActor
+    func testAndSaveBinanceAccount(apiKey: String, secretKey: String) async -> String? {
+        guard !isBinanceRequestInProgress else { return localized("binanceRequestInProgress") }
 
-        let alert = NSAlert()
-        alert.messageText = localized("binanceAccount")
-        alert.informativeText = localized("binanceAccountInstructions")
-
-        let apiKeyInput = NSSecureTextField()
-        let secretKeyInput = NSSecureTextField()
-        apiKeyInput.setAccessibilityLabel("API Key")
-        secretKeyInput.setAccessibilityLabel("Secret Key")
-        let fields = NSGridView(views: [
-            [NSTextField(labelWithString: "API Key"), apiKeyInput],
-            [NSTextField(labelWithString: "Secret Key"), secretKeyInput]
-        ])
-        fields.rowSpacing = 8
-        fields.columnSpacing = 12
-        apiKeyInput.widthAnchor.constraint(equalToConstant: 225).isActive = true
-        secretKeyInput.widthAnchor.constraint(equalTo: apiKeyInput.widthAnchor).isActive = true
-        fields.frame.size = fields.fittingSize
-        alert.accessoryView = fields
-        alert.addButton(withTitle: localized("binanceTestAndSave"))
-        alert.addButton(withTitle: localized("cancel"))
-
-        defer {
-            apiKeyInput.stringValue = ""
-            secretKeyInput.stringValue = ""
-        }
-        NSApp.activate(ignoringOtherApps: true)
-        alert.window.initialFirstResponder = apiKeyInput
-        guard alert.runModal() == .alertFirstButtonReturn else { return }
-
-        let apiKey = apiKeyInput.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
-        let secretKey = secretKeyInput.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        let apiKey = apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
+        let secretKey = secretKey.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !apiKey.isEmpty, !secretKey.isEmpty,
               apiKey.rangeOfCharacter(from: .whitespacesAndNewlines) == nil,
               secretKey.rangeOfCharacter(from: .whitespacesAndNewlines) == nil else {
-            return showError("binanceEnterCredentials")
+            return localized("binanceEnterCredentials")
         }
-        requestBinanceOrders(symbol: currentSymbol, credentialsToSave: BinanceCredentials(apiKey: apiKey, secretKey: Data(secretKey.utf8)))
+
+        isBinanceRequestInProgress = true
+        defer { isBinanceRequestInProgress = false }
+        let credentials = BinanceCredentials(apiKey: apiKey, secretKey: Data(secretKey.utf8))
+        do {
+            _ = try await BinanceAccountService().openOrders(
+                symbol: currentSymbol, futures: isFuturesMode, apiKey: credentials.apiKey,
+                secretKey: credentials.secretKey, configuration: configureNetwork(.ephemeral)
+            )
+            try await Task.detached { try credentials.save() }.value
+            if usesBinancePositions { restartBinancePositionSync(using: credentials) }
+            return nil
+        } catch {
+            return binanceErrorMessage(error, requestError: "binanceTestFailed")
+        }
     }
 
     @objc func showBinanceOrders(_ sender: NSMenuItem) {
         guard let symbol = sender.representedObject as? String else { return }
-        requestBinanceOrders(symbol: symbol, credentialsToSave: nil)
-    }
-
-    private func requestBinanceOrders(symbol: String, credentialsToSave: BinanceCredentials?) {
         guard !isBinanceRequestInProgress else { return showError("binanceRequestInProgress") }
         isBinanceRequestInProgress = true
         let futures = isFuturesMode
@@ -59,20 +41,12 @@ extension AppDelegate {
             let market = localized(futures ? "futuresMode" : "spotMode")
             let context = "\(symbol) · \(market)"
             do {
-                let credentials = try await Task.detached {
-                    try credentialsToSave ?? BinanceCredentials.load()
-                }.value
+                let credentials = try await Task.detached { try BinanceCredentials.load() }.value
                 let orders = try await BinanceAccountService().openOrders(
                     symbol: symbol, futures: futures, apiKey: credentials.apiKey, secretKey: credentials.secretKey,
                     configuration: configuration
                 )
-                if credentialsToSave != nil {
-                    try await Task.detached { try credentials.save() }.value
-                    if usesBinancePositions { restartBinancePositionSync(using: credentials) }
-                    showBinanceAlert(title: localized("binanceAccount"), message: "\(context)\n\(localized("binanceAccountSaved"))")
-                } else {
-                    showOpenOrders(orders, context: context)
-                }
+                showOpenOrders(orders, context: context)
             } catch {
                 showBinanceAlert(title: localized("error"), message: "\(context)\n\(binanceErrorMessage(error))", style: .warning)
             }

@@ -71,7 +71,7 @@ The script will:
 - Proxy Settings: Configure SOCKS5 proxy (default port 7890 for ClashX)
 - Position Tracking: Choose **Edit Position…** in a coin's submenu to set the entry price, direction, margin or quantity, and leverage and preview the notional value. Leave the amount blank to track change against the entry price alone.
 - Menu Bar Display: Toggle price, entry change, unrealized PnL, and ROI fields
-- Price Trend: Under **Menu Bar Display → Price Trend**, choose **Live 5m**, **15m**, **1h**, or **4h**. The historical options plot the last 30 Binance candles for the selected pair, with the current quote updating the open candle.
+- Price Trend: In **Settings → Menu Bar**, choose **Live 5m**, **15m**, **1h**, or **4h**. The historical options plot the last 30 Binance candles for the selected pair, with the current quote updating the open candle.
 - Language: Switch between English and Chinese
 - Custom Pairs: Add your own trading pairs
 

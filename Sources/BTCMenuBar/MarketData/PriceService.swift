@@ -85,6 +85,8 @@ extension AppDelegate {
                     self.latestPrices = prices
                     if self.priceTrendPeriod != .off {
                         self.priceTrendHistory.record(prices, isFutures: self.isFuturesMode)
+                    } else if let price = prices[self.currentSymbol] {
+                        self.priceTrendHistory.record([self.currentSymbol: price], isFutures: self.isFuturesMode)
                     }
                     if let price = prices[self.currentSymbol], self.historicalPriceTrend?.selection == self.historicalTrendSelection {
                         self.historicalPriceTrend?.applyQuote(price, requestedAt: requestedAt, receivedAt: receivedAt)
@@ -98,6 +100,7 @@ extension AppDelegate {
 
                 self.refreshWatchlistTitles()
                 self.refreshStatusTitleFromCache()
+                self.refreshQuotePanel()
             }
         }
         priceRequest = (requestID, task)
