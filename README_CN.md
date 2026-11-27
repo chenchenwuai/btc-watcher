@@ -50,7 +50,7 @@ cd btc-watcher
 - 🔌 SOCKS5 代理支持（兼容 ClashX）
 - 🌍 中英文双语支持
 - 🔗 快速跳转币安合约
-- 🎯 零依赖，纯 Swift 实现
+- 🔔 在应用内检查和安装更新
 
 ## 系统要求
 
@@ -69,6 +69,7 @@ cd btc-watcher
 ### 基本操作
 - 点击菜单栏图标查看所有自选交易对报价。刷新失败时，缓存价格会标记为旧报价。
 - 在币种子菜单选择 **在菜单栏显示**，切换菜单栏展示的交易对。
+- 在「设置 → 帮助」中选择「检查更新…」。发布版可以在应用内安装并重启，普通本地构建会提供下载入口。首次支持应用内安装的版本需要手动安装。
 - 使用 `⌘Q` 退出应用
 
 ### 自定义设置
@@ -102,6 +103,17 @@ cd btc-watcher
 ./generate_icons.sh
 ```
 
+### 构建支持应用内更新的版本
+
+下载并解压[发布工作流使用的 Sparkle 发行包](https://github.com/sparkle-project/Sparkle/releases/tag/2.10.1)。将 `SPARKLE_DIR` 指向解压后的目录，运行其中的 `bin/generate_keys --account btcwatcher`，在 macOS 钥匙串中生成更新签名密钥。然后启用 Sparkle 构建应用。
+
+```bash
+SPARKLE_PUBLIC_KEY=$("$SPARKLE_DIR/bin/generate_keys" --account btcwatcher -p)
+SPARKLE_DIR="$SPARKLE_DIR" SPARKLE_PUBLIC_KEY="$SPARKLE_PUBLIC_KEY" ./build.sh
+```
+
+在 GitHub Actions 中，将公钥填入仓库变量 `SPARKLE_PUBLIC_KEY`，用 `bin/generate_keys --account btcwatcher -x <private-key-file>` 导出对应私钥并填入仓库密文 `SPARKLE_PRIVATE_KEY`。请妥善备份私钥，后续发版继续使用同一把密钥。每次发版递增 `CFBundleVersion`。标签工作流会签署 ZIP 和更新清单，上传两项附件后再公开发布。直接运行 `./build.sh` 的本地构建也可以检查更新，发现新版后可前往 GitHub 下载并手动安装。
+
 ### 项目结构
 - `Sources/BTCMenuBar/App/` 保存应用入口、生命周期和设置读写代码。
 - `Sources/BTCMenuBar/MenuBar/` 保存菜单构建、菜单操作和手动仓位设置代码。
@@ -128,7 +140,7 @@ cd btc-watcher
 
 ### 实现方式
 - 使用原生 macOS 框架（Cocoa、Foundation）
-- 无外部依赖
+- 发布版使用 Sparkle 安装应用更新
 - 使用 NSStatusItem 实现菜单栏集成
 - 自动错误处理和 API 故障转移
 - 动态菜单生成
@@ -147,10 +159,10 @@ cd btc-watcher
 
 ## 安全性
 
-- 仅使用公开 API 接口
+- 行情来自币安公开接口。挂单查询和合约持仓同步使用需认证的只读接口。
 - 最小系统权限要求
-- 不存储敏感数据
-- 经过 macOS 安全签名
+- 币安凭证保存在 macOS 钥匙串中，Secret Key 仅在本机用于请求签名。
+- 应用包使用 macOS ad-hoc 签名，Sparkle 会验证更新清单和下载包的签名。
 
 ## 参与贡献
 

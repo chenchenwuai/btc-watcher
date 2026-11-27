@@ -1,6 +1,12 @@
 import Cocoa
+#if BTCWATCHER_SPARKLE
+import Sparkle
+#endif
 
 class AppDelegate: NSObject, NSApplicationDelegate {
+#if BTCWATCHER_SPARKLE
+    private(set) var updaterController: SPUStandardUpdaterController?
+#endif
     var statusItem: NSStatusItem!
     var quotePanel: QuotePanel?
     var settingsWindow: SettingsWindow?
@@ -64,5 +70,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         setupMenu()
         startTimer()
         if usesBinancePositions { restartBinancePositionSync() }
+#if BTCWATCHER_SPARKLE
+        updaterController = SPUStandardUpdaterController(startingUpdater: true, updaterDelegate: nil, userDriverDelegate: nil)
+#endif
     }
 }

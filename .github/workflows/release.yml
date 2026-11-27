@@ -8,23 +8,112 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: btcwatcher-release
+  queue: max
+
 jobs:
   release:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v6
-      
+        with:
+          persist-credentials: false
+
       - name: Show Swift Version
         run: xcrun swift --version
-      
-      - name: Build Application
+
+      - name: Prepare Sparkle
         run: |
-          ./build.sh
-      
-      - name: Create Release
-        uses: softprops/action-gh-release@v3
-        with:
-          files: BTCWatcher.app.zip
-          generate_release_notes: true
+          version=$(plutil -extract CFBundleShortVersionString raw -o - Info.plist)
+          if [[ "$GITHUB_REF_NAME" != "v$version" || ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "The release tag must match the stable version in Info.plist." >&2
+            exit 1
+          fi
+
+          sparkle_dir="$RUNNER_TEMP/sparkle"
+          mkdir -p "$sparkle_dir"
+          curl --fail --silent --show-error --location --retry 3 \
+            --output "$sparkle_dir/Sparkle.tar.xz" \
+            https://github.com/sparkle-project/Sparkle/releases/download/2.10.1/Sparkle-2.10.1.tar.xz
+          printf '%s  %s\n' 1a856d2a9edb8e628de88121d7be04cf0e2167f8641650b78fca00b14244cf27 \
+            "$sparkle_dir/Sparkle.tar.xz" | shasum -a 256 -c
+          tar -xJf "$sparkle_dir/Sparkle.tar.xz" -C "$sparkle_dir" Sparkle.framework LICENSE bin/generate_appcast bin/sign_update
+          echo "SPARKLE_DIR=$sparkle_dir" >> "$GITHUB_ENV"
+
+      - name: Build Application
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SPARKLE_PUBLIC_KEY: ${{ vars.SPARKLE_PUBLIC_KEY }}
+        run: ./build.sh
+
+      - name: Sign Update and Appcast
+        env:
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+        run: |
+          if [[ -z "$SPARKLE_PRIVATE_KEY" ]]; then
+            echo "Configure the SPARKLE_PRIVATE_KEY Actions secret before releasing." >&2
+            exit 1
+          fi
+
+          mkdir release-assets
+          cp BTCWatcher.app.zip release-assets/
+          release_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/releases"
+          printf '%s\n' "$SPARKLE_PRIVATE_KEY" | "$SPARKLE_DIR/bin/generate_appcast" \
+            --ed-key-file - --maximum-deltas 0 \
+            --download-url-prefix "$release_url/download/$GITHUB_REF_NAME/" \
+            --link "$release_url/tag/$GITHUB_REF_NAME" release-assets
+
+          appcast=release-assets/appcast.xml
+          signature=$(xmllint --xpath 'string(/rss/channel/item/enclosure/@*[local-name()="edSignature"])' "$appcast")
+          if [[ -z "$signature" ]]; then
+            echo "The ZIP could not be signed. Check that the Sparkle public and private keys match." >&2
+            exit 1
+          fi
+          printf '%s\n' "$SPARKLE_PRIVATE_KEY" | "$SPARKLE_DIR/bin/sign_update" --ed-key-file - --verify "$appcast"
+
+      - name: Publish Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="$GITHUB_REF_NAME"
+          tagged_commit=$(gh api "repos/$GITHUB_REPOSITORY/commits/$tag" --jq .sha)
+          if [[ "$tagged_commit" != "$(git rev-parse HEAD)" ]]; then
+            echo "The release tag no longer matches the packaged commit." >&2
+            exit 1
+          fi
+
+          if release=$(gh release view "$tag" --json isDraft,assets 2>&1); then
+            if jq -e '.isDraft == false' <<< "$release" >/dev/null; then
+              if ! jq -e '[.assets[] | select(.state == "uploaded").name] |
+                index("BTCWatcher.app.zip") != null and index("appcast.xml") != null' <<< "$release" >/dev/null; then
+                echo "The existing published release is missing an update asset." >&2
+                exit 1
+              fi
+              exit 0
+            fi
+          elif [[ "$release" != "release not found" ]]; then
+            echo "$release" >&2
+            exit 1
+          fi
+
+          mark_latest=true
+          if latest_tag=$(gh api "repos/$GITHUB_REPOSITORY/releases/latest" --jq .tag_name 2>&1); then
+            version=${tag#v}
+            latest_version=${latest_tag#v}
+            if [[ ! "$latest_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              echo "The latest release tag has an unexpected version format: $latest_tag" >&2
+              exit 1
+            fi
+            if [[ "$version" == "$latest_version" || "$(printf '%s\n' "$version" "$latest_version" | sort -V | tail -n 1)" != "$version" ]]; then
+              mark_latest=false
+            fi
+          elif [[ "$latest_tag" != *'gh: Not Found (HTTP 404)' ]]; then
+            echo "$latest_tag" >&2
+            exit 1
+          fi
+
+          if [[ "$release" == "release not found" ]]; then
+            gh release create "$tag" --draft --verify-tag --generate-notes
+          fi
+          gh release upload "$tag" --clobber release-assets/BTCWatcher.app.zip release-assets/appcast.xml
+          gh release edit "$tag" --tag "$tag" --verify-tag --draft=false --latest="$mark_latest"

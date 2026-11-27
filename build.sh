@@ -10,6 +10,20 @@ APP_EXECUTABLE="$APP_BUNDLE/Contents/MacOS/$APP_NAME"
 ZIP_NAME="$APP_NAME.app.zip"
 MIN_MACOS_VERSION=$(plutil -extract LSMinimumSystemVersion raw -o - Info.plist)
 SWIFT_TARGET="$(uname -m)-apple-macosx${MIN_MACOS_VERSION}"
+SWIFT_FLAGS=(-target "$SWIFT_TARGET" -parse-as-library)
+
+if [[ -n "${SPARKLE_DIR:-}${SPARKLE_PUBLIC_KEY:-}" ]]; then
+    if [[ -z "${SPARKLE_DIR:-}" || ! -d "$SPARKLE_DIR/Sparkle.framework" || ! -f "$SPARKLE_DIR/LICENSE" ]]; then
+        echo "SPARKLE_DIR must point to the extracted Sparkle distribution." >&2
+        exit 1
+    fi
+    if [[ ! "${SPARKLE_PUBLIC_KEY:-}" =~ ^[A-Za-z0-9+/]{43}=$ ]]; then
+        echo "SPARKLE_PUBLIC_KEY must be a base64-encoded Sparkle public key." >&2
+        exit 1
+    fi
+    SWIFT_FLAGS+=(-D BTCWATCHER_SPARKLE -F "$SPARKLE_DIR" -framework Sparkle)
+    SWIFT_FLAGS+=(-Xlinker -rpath -Xlinker @executable_path/../Frameworks)
+fi
 
 # 删除已存在的 zip 文件
 if [ -f "$ZIP_NAME" ]; then
@@ -33,7 +47,7 @@ SWIFT_SOURCES=()
 while IFS= read -r source; do
     SWIFT_SOURCES+=("$source")
 done < <(find Sources/BTCMenuBar -name "*.swift" -print | sort)
-swiftc -target "$SWIFT_TARGET" -parse-as-library -o "$APP_EXECUTABLE" "${SWIFT_SOURCES[@]}"
+swiftc "${SWIFT_FLAGS[@]}" -o "$APP_EXECUTABLE" "${SWIFT_SOURCES[@]}"
 
 # Set executable permissions
 echo "🔒 Setting permissions..."
@@ -51,13 +65,20 @@ if [ -d "Resources" ]; then
     cp -r Resources/* "$APP_BUNDLE/Contents/Resources/"
 fi
 
+if [[ -n "${SPARKLE_DIR:-}" ]]; then
+    mkdir -p "$APP_BUNDLE/Contents/Frameworks"
+    ditto "$SPARKLE_DIR/Sparkle.framework" "$APP_BUNDLE/Contents/Frameworks/Sparkle.framework"
+    cp "$SPARKLE_DIR/LICENSE" "$APP_BUNDLE/Contents/Resources/Sparkle-LICENSE.txt"
+    plutil -insert SUPublicEDKey -string "$SPARKLE_PUBLIC_KEY" "$APP_BUNDLE/Contents/Info.plist"
+fi
+
 # Remove extended attributes
 echo "🧹 Removing extended attributes..."
 xattr -cr "$APP_BUNDLE"
 
 # Sign the application
 echo "📝 Signing application..."
-codesign --force --deep --sign - "$APP_BUNDLE"
+codesign --force --sign - "$APP_BUNDLE"
 codesign --verify --deep --strict "$APP_BUNDLE"
 
 # Create zip archive using ditto (preserves permissions and attributes)

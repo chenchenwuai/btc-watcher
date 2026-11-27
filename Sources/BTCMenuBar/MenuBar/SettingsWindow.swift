@@ -58,8 +58,14 @@ private final class SettingsWindowModel: ObservableObject {
         case testing, saved, failed(String)
     }
 
+    enum UpdateStatus {
+        case checking, current, available(ReleaseUpdate), failed
+    }
+
     unowned let app: AppDelegate
     @Published private(set) var accountStatus: AccountStatus?
+    @Published private(set) var updateStatus: UpdateStatus?
+    @Published private(set) var canCheckForUpdates = true
 
     var isTestingAccount: Bool {
         if case .testing = accountStatus { return true }
@@ -68,6 +74,38 @@ private final class SettingsWindowModel: ObservableObject {
 
     init(app: AppDelegate) {
         self.app = app
+#if BTCWATCHER_SPARKLE
+        app.updaterController?.updater.publisher(for: \.canCheckForUpdates)
+            .receive(on: DispatchQueue.main)
+            .assign(to: &$canCheckForUpdates)
+#endif
+    }
+
+    func checkForUpdates() {
+        guard canCheckForUpdates else { return }
+#if BTCWATCHER_SPARKLE
+        if let updater = app.updaterController {
+            updater.checkForUpdates(nil)
+            return
+        }
+#endif
+        let currentVersion = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String
+            ?? String(Constants.appVersion.dropFirst())
+        let session = URLSession(configuration: app.configureNetwork(.ephemeral))
+        canCheckForUpdates = false
+        updateStatus = .checking
+        Task { @MainActor [weak self] in
+            defer {
+                session.finishTasksAndInvalidate()
+                self?.canCheckForUpdates = true
+            }
+            do {
+                let update = try await ReleaseUpdate.check(currentVersion: currentVersion, session: session)
+                self?.updateStatus = update.map(UpdateStatus.available) ?? .current
+            } catch {
+                self?.updateStatus = .failed
+            }
+        }
     }
 
     func testAndSaveAccount(apiKey: String, secretKey: String) {
@@ -287,12 +325,37 @@ private struct SettingsView: View {
                 Text(Constants.appVersion).foregroundStyle(muted)
             }
             HStack(spacing: 12) {
+                Button(label("checkForUpdates"), action: model.checkForUpdates)
+                    .disabled(!model.canCheckForUpdates)
                 Button(label("about"), action: app.showAbout)
                 Button(label("feedback"), action: app.openFeedback)
                 Spacer()
             }
             .padding(.horizontal, 24)
             .padding(.vertical, 18)
+            HStack(spacing: 8) {
+                updateStatus
+                Spacer()
+            }
+            .padding(.horizontal, 24)
+        }
+    }
+
+    @ViewBuilder
+    private var updateStatus: some View {
+        switch model.updateStatus {
+        case .checking:
+            ProgressView().controlSize(.small)
+            Text(label("updateChecking")).foregroundStyle(muted)
+        case .current:
+            Text(label("updateCurrent")).foregroundStyle(muted)
+        case .available(let release):
+            Text(String(format: label("updateAvailable"), release.version))
+            Link(label("updateDownload"), destination: release.pageURL)
+        case .failed:
+            Text(label("updateCheckFailed")).foregroundStyle(.red)
+        case nil:
+            EmptyView()
         }
     }
 

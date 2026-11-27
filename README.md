@@ -50,7 +50,7 @@ The script will:
 - 🔌 SOCKS5 proxy support (ClashX compatible)
 - 🌍 English and Chinese language support
 - 🔗 Quick access to Binance futures
-- 🎯 Zero dependencies, pure Swift implementation
+- 🔔 Check for and install updates from the app
 
 ## System Requirements
 
@@ -62,6 +62,7 @@ The script will:
 ### Basic Operations
 - Click the menu bar icon to view all watched prices. The menu marks cached prices as stale when refresh fails.
 - Open a coin's submenu and choose **Show in Menu Bar** to pin its price.
+- Open **Settings → Help → Check for Updates…** to check for a new version. Release builds can install it in-app, and standard local builds link to the download page. Install the first release that supports in-app installation manually.
 - Use `⌘Q` to quit
 
 ### Customization
@@ -95,6 +96,17 @@ The script will:
 ./generate_icons.sh
 ```
 
+### Building with in-app updates
+
+Download and extract the [Sparkle distribution used by the release workflow](https://github.com/sparkle-project/Sparkle/releases/tag/2.10.1). Set `SPARKLE_DIR` to that directory and use its `bin/generate_keys --account btcwatcher` command to create a signing key in your macOS Keychain. Then build with Sparkle enabled.
+
+```bash
+SPARKLE_PUBLIC_KEY=$("$SPARKLE_DIR/bin/generate_keys" --account btcwatcher -p)
+SPARKLE_DIR="$SPARKLE_DIR" SPARKLE_PUBLIC_KEY="$SPARKLE_PUBLIC_KEY" ./build.sh
+```
+
+In GitHub Actions, set the repository variable `SPARKLE_PUBLIC_KEY` to the public key and the repository secret `SPARKLE_PRIVATE_KEY` to its matching private key, exported with `bin/generate_keys --account btcwatcher -x <private-key-file>`. Keep a secure backup of the private key and reuse it for future releases. Increment `CFBundleVersion` for each release. The tag workflow signs the ZIP and appcast, then publishes both assets together. Running `./build.sh` without Sparkle configuration checks GitHub for new releases and opens the release page for manual installation.
+
 ### Project Structure
 - `Sources/BTCMenuBar/App/`: Application entry point, lifecycle, and settings storage
 - `Sources/BTCMenuBar/MenuBar/`: Menu construction, menu actions, and manual position settings
@@ -121,7 +133,7 @@ Price data is fetched from Binance API through multiple endpoints:
 
 ### Implementation
 - Built with native macOS frameworks (Cocoa, Foundation)
-- No external dependencies
+- Sparkle handles in-app updates in release builds
 - Efficient menu bar integration using NSStatusItem
 - Automatic error handling and API failover
 - Dynamic menu generation
@@ -140,10 +152,10 @@ Price data is fetched from Binance API through multiple endpoints:
 
 ## Security
 
-- Uses only public API endpoints
+- Market quotes use public Binance endpoints. Open orders and futures position sync use authenticated, read-only requests.
 - Minimal system permissions required
-- No sensitive data storage
-- Code signed for macOS security
+- Binance credentials are stored in the macOS Keychain. The secret key signs requests locally.
+- The app bundle uses macOS ad-hoc signing, and Sparkle verifies the signatures of the update feed and download.
 
 ## Contributing
 

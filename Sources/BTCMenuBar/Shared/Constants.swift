@@ -1,7 +1,7 @@
 import Foundation
 
 struct Constants {
-    static let appVersion = "v1.5.0"
+    static let appVersion = "v1.5.1"
     
     static let spotApiEndpoints = [
         "https://api.binance.com/api/v3/ticker/price",
@@ -107,6 +107,12 @@ struct Constants {
             由 chenwuai 开发
             """],
         "version": [true: "Version", false: "版本"],
+        "checkForUpdates": [true: "Check for Updates…", false: "检查更新…"],
+        "updateChecking": [true: "Checking for updates…", false: "正在检查更新…"],
+        "updateCurrent": [true: "No update available.", false: "暂无可用更新。"],
+        "updateAvailable": [true: "Version %@ is available.", false: "发现新版本 %@。"],
+        "updateDownload": [true: "Open Release Page", false: "前往下载"],
+        "updateCheckFailed": [true: "Could not check for updates. Try again later.", false: "暂时无法检查更新，请稍后重试。"],
         "feedback": [true: "Feedback", false: "反馈"],
         "help": [true: "Help", false: "帮助"],
         "settings": [true: "Settings", false: "设置"],
